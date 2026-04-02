@@ -1,9 +1,43 @@
+/*
+ * Saturn CSS — faithfully replicating classic Jupyter Notebook 6.x styling.
+ * Reference: jupyter/notebook 6.x branch, variables.less + cell.less + toolbar.less
+ *
+ * Key values:
+ *   Page bg: #fff, Cell bg: #f7f7f7
+ *   Command mode left strip: #42A5F5 (blue), Edit mode: #66BB6A (green)
+ *   Input prompt: #303F9F "In [n]:", Output prompt: #D84315 "Out[n]:"
+ *   Code font: Menlo, Monaco, Consolas, "Courier New", monospace — 14px / 20px
+ *   UI font: "Helvetica Neue", Helvetica, Arial, sans-serif
+ */
+
 :root {
-  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
-  font-size: 14px;
-  line-height: 1.5;
-  color: #d4d4d4;
-  background-color: #1e1e1e;
+  --font-ui: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-code: Menlo, Monaco, Consolas, "Courier New", monospace;
+  --font-size-code: 14px;
+  --line-height-code: 20px;
+
+  --bg-page: #fff;
+  --bg-cell: #f7f7f7;
+  --bg-toolbar: #f8f8f8;
+  --bg-output: #fff;
+  --bg-stderr: #fdd;
+
+  --text-color: #333;
+  --text-muted: #777;
+  --border-color: #cfcfcf;
+  --border-color-dark: #ababab;
+
+  --color-command: #42A5F5;
+  --color-edit: #66BB6A;
+  --color-prompt-in: #303F9F;
+  --color-prompt-out: #D84315;
+  --color-jupyter-orange: #F37626;
+  --color-error: darkred;
+
+  --cell-border-width: 1px;
+  --cell-left-strip-width: 5px;
+  --cell-padding: 6px;
+  --prompt-width: 11.5ex;
 }
 
 * {
@@ -12,70 +46,157 @@
   box-sizing: border-box;
 }
 
+body {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.42857;
+  color: var(--text-color);
+  background-color: var(--bg-page);
+}
+
 .app {
   max-width: 960px;
   margin: 0 auto;
-  padding: 16px;
+  padding: 0 12px 64px;
   min-height: 100vh;
 }
 
-/* ─── Header ─────────────────────────────────────────── */
+/* ─── Menu Bar ───────────────────────────────────────── */
 
-.app-header {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  padding: 12px 0;
-  border-bottom: 1px solid #333;
-  margin-bottom: 24px;
-}
-
-.app-header h1 {
-  font-size: 20px;
-  font-weight: 700;
-  color: #e0e0e0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-}
-
-.subtitle {
-  font-size: 12px;
-  color: #888;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-}
-
-.kernel-status {
-  margin-left: auto;
+.menu-bar {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 0;
+  padding: 4px 8px;
+  background-color: var(--bg-page);
+  border-bottom: 1px solid var(--border-color);
+  margin: 0 -12px;
+  font-size: 13px;
+}
+
+.menu-item {
+  padding: 4px 10px;
+  cursor: pointer;
+  color: var(--text-color);
+  border-radius: 2px;
+}
+
+.menu-item:hover {
+  background-color: #e8e8e8;
+}
+
+.file-name {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-left: auto;
+  font-style: italic;
+}
+
+/* ─── Toolbar ────────────────────────────────────────── */
+
+.toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 8px;
+  margin: 0 -12px 8px;
+  background-color: var(--bg-toolbar);
+  border-bottom: 1px solid var(--border-color);
+  min-height: 32px;
+}
+
+/* Toolbar button groups */
+.toolbar-actions {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.toolbar-group {
+  display: flex;
+  gap: 1px;
+  margin-right: 5px;
+}
+
+.toolbar-spacer {
+  flex: 1;
+}
+
+.toolbar-btn {
+  padding: 2px 8px;
   font-size: 12px;
-  color: #888;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: var(--bg-toolbar);
+  border: 1px solid var(--border-color);
+  border-radius: 2px;
+  color: var(--text-color);
+  cursor: pointer;
+  font-family: var(--font-ui);
+  line-height: 1.5;
+}
+
+.toolbar-btn:hover {
+  background-color: #e6e6e6;
+  border-color: #adadad;
+}
+
+.toolbar-btn:active {
+  background-color: #d4d4d4;
+}
+
+.toolbar-btn.stop-btn {
+  color: var(--color-error);
+}
+
+.toolbar-btn.run-btn {
+  font-weight: 600;
+}
+
+.kernel-select {
+  padding: 2px 8px;
+  font-size: 12px;
+  background-color: var(--bg-toolbar);
+  border: 1px solid var(--border-color);
+  border-radius: 2px;
+  color: var(--text-color);
+  font-family: var(--font-ui);
+  cursor: pointer;
+}
+
+.cell-type-select {
+  padding: 2px 8px;
+  font-size: 12px;
+  background-color: var(--bg-toolbar);
+  border: 1px solid var(--border-color);
+  border-radius: 2px;
+  color: var(--text-color);
+  font-family: var(--font-ui);
+}
+
+/* Kernel status in toolbar */
+.kernel-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-left: 8px;
+  white-space: nowrap;
 }
 
 .status-dot {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  background-color: #666;
+  background-color: #999;
 }
 
-.status-dot.idle {
-  background-color: #4caf50;
-}
-
-.status-dot.busy {
-  background-color: #ff9800;
-}
-
-.status-dot.starting {
-  background-color: #2196f3;
-  animation: pulse 1s infinite;
-}
-
-.status-dot.disconnected {
-  background-color: #666;
-}
+.status-dot.idle { background-color: #4caf50; }
+.status-dot.busy { background-color: #ff9800; }
+.status-dot.starting { background-color: #2196f3; animation: pulse 1s infinite; }
+.status-dot.disconnected { background-color: #999; }
 
 @keyframes pulse {
   0%, 100% { opacity: 1; }
@@ -85,197 +206,382 @@
 /* ─── Error Banner ───────────────────────────────────── */
 
 .error-banner {
-  background-color: #3c1f1f;
+  background-color: #fdd;
   border: 1px solid #e53935;
-  border-radius: 4px;
-  color: #ef9a9a;
-  padding: 8px 12px;
+  border-radius: 2px;
+  color: var(--color-error);
+  padding: 6px 12px;
   font-size: 13px;
-  margin-bottom: 16px;
+  margin-bottom: 8px;
 }
 
-/* ─── Kernel Picker ──────────────────────────────────── */
+/* ─── Notebook ───────────────────────────────────────── */
 
-.kernel-picker {
-  text-align: center;
-  padding: 48px 16px;
-}
-
-.kernel-picker h3 {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 16px;
-  margin-bottom: 16px;
-  color: #ccc;
-}
-
-.muted {
-  color: #888;
-  font-size: 13px;
-}
-
-.muted code {
-  background-color: #333;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-size: 12px;
-}
-
-.kernel-list {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-
-.kernel-button {
+.notebook {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 12px 24px;
-  background-color: #2a2a2a;
-  border: 1px solid #444;
-  border-radius: 8px;
-  color: #e0e0e0;
-  cursor: pointer;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 14px;
-  transition: all 0.15s;
 }
 
-.kernel-button:hover {
-  border-color: #4fc3f7;
-  background-color: #1e3a4f;
+.cell-container {
+  position: relative;
 }
 
-.kernel-lang {
-  font-size: 11px;
-  color: #888;
-}
+/* ─── Cell Actions (hover toolbar) ───────────────────── */
 
-/* ─── Code Cell ──────────────────────────────────────── */
-
-.cell {
-  border: 1px solid #333;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.cell-header {
+.cell-actions {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  background-color: #252526;
-  border-bottom: 1px solid #333;
+  gap: 4px;
+  padding: 2px 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+  justify-content: flex-end;
 }
 
-.execution-count {
-  color: #4fc3f7;
-  font-weight: 600;
-  min-width: 32px;
+.cell-container:hover .cell-actions {
+  opacity: 1;
 }
 
-.cell-header button {
-  padding: 4px 12px;
-  font-size: 12px;
-  background-color: #0e639c;
-  border: none;
-  border-radius: 3px;
-  color: white;
+.cell-actions button,
+.cell-actions select {
+  padding: 1px 6px;
+  font-size: 11px;
+  background-color: var(--bg-toolbar);
+  border: 1px solid var(--border-color);
+  border-radius: 2px;
+  color: var(--text-muted);
   cursor: pointer;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--font-ui);
 }
 
-.cell-header button:hover {
-  background-color: #1177bb;
+.cell-actions button:hover {
+  background-color: #e6e6e6;
+  color: var(--text-color);
 }
 
-.cell-header button:disabled {
-  background-color: #444;
+.cell-actions button:disabled {
+  opacity: 0.3;
   cursor: not-allowed;
 }
 
-.stop-btn {
-  background-color: #c62828 !important;
-  margin-left: auto;
+/* ─── Code Cell ──────────────────────────────────────── */
+/* Jupyter classic: cell has transparent border, selected cell gets colored left strip */
+
+.code-cell {
+  display: flex;
+  border: var(--cell-border-width) solid transparent;
+  border-radius: 2px;
+  position: relative;
+  background-color: var(--bg-page);
 }
 
-.stop-btn:hover {
-  background-color: #e53935 !important;
+/* Left indicator strip (Jupyter's ::before pattern) */
+.code-cell::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: calc(-1 * var(--cell-left-strip-width));
+  width: var(--cell-left-strip-width);
+  height: 100%;
+  background-color: transparent;
+  border-radius: 2px 0 0 2px;
 }
 
-/* ─── Code Input ─────────────────────────────────────── */
+.code-cell.focused {
+  border-color: var(--border-color-dark);
+}
 
-.code-input {
-  width: 100%;
-  padding: 12px;
-  background-color: #1e1e1e;
-  color: #d4d4d4;
-  border: none;
-  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
-  font-size: 14px;
-  line-height: 1.5;
-  resize: vertical;
+.code-cell.focused::before {
+  background-color: var(--color-command);
+}
+
+.code-cell.editing::before {
+  background-color: var(--color-edit);
+}
+
+.code-cell.editing {
+  border-color: var(--color-edit);
+}
+
+/* ─── Cell Gutter (In [n]: prompt) ───────────────────── */
+
+.cell-gutter {
+  width: var(--prompt-width);
+  min-width: var(--prompt-width);
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 6px 4px 6px 0;
+  user-select: none;
+}
+
+.prompt-in {
+  font-family: var(--font-code);
+  font-size: 12px;
+  color: var(--color-prompt-in);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.prompt-out {
+  font-family: var(--font-code);
+  font-size: 12px;
+  color: var(--color-prompt-out);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* ─── Cell Content (editor area) ─────────────────────── */
+
+.cell-content {
+  flex: 1;
+  min-width: 0;
+  background-color: var(--bg-cell);
+  border-left: 1px solid var(--border-color);
+  padding: var(--cell-padding);
+}
+
+.code-editor {
+  min-height: 20px;
+}
+
+/* CodeMirror overrides for Jupyter-like appearance */
+.code-editor .cm-editor {
+  font-family: var(--font-code);
+  font-size: var(--font-size-code);
+  line-height: var(--line-height-code);
+  background-color: var(--bg-cell);
+}
+
+.code-editor .cm-editor .cm-content {
+  padding: 0;
+}
+
+.code-editor .cm-editor.cm-focused {
   outline: none;
 }
 
-.code-input:focus {
-  background-color: #1a1a2e;
+.code-editor .cm-editor .cm-gutters {
+  background-color: var(--bg-cell);
+  border-right: none;
 }
+
+.code-editor .cm-scroller {
+  overflow-x: auto;
+}
+
+/* ─── Markdown Cell ──────────────────────────────────── */
+
+.markdown-cell {
+  display: flex;
+  border: var(--cell-border-width) solid transparent;
+  border-radius: 2px;
+  position: relative;
+}
+
+.markdown-cell::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: calc(-1 * var(--cell-left-strip-width));
+  width: var(--cell-left-strip-width);
+  height: 100%;
+  background-color: transparent;
+  border-radius: 2px 0 0 2px;
+}
+
+.markdown-cell.focused::before {
+  background-color: var(--color-command);
+}
+
+.markdown-cell.focused {
+  border-color: var(--border-color-dark);
+}
+
+.markdown-cell.editing::before {
+  background-color: var(--color-edit);
+}
+
+.markdown-cell.editing {
+  border-color: var(--color-edit);
+}
+
+.markdown-rendered {
+  padding: 12px 16px;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-color);
+  cursor: text;
+  width: 100%;
+}
+
+.markdown-rendered h1 { font-size: 185.7%; margin: 1.08em 0 0; font-weight: bold; }
+.markdown-rendered h2 { font-size: 157.1%; margin: 1.27em 0 0; font-weight: bold; }
+.markdown-rendered h3 { font-size: 128.6%; margin: 1.55em 0 0; font-weight: bold; }
+.markdown-rendered h4 { font-size: 110%; margin: 2em 0 0; font-weight: bold; }
+.markdown-rendered p { margin: 0.5em 0; }
+.markdown-rendered code {
+  background-color: #eff0f1;
+  padding: 1px 5px;
+  border-radius: 2px;
+  font-family: var(--font-code);
+  font-size: 100%;
+}
+.markdown-rendered pre {
+  background-color: #f7f7f7;
+  border: 1px solid var(--border-color);
+  padding: 8px;
+  border-radius: 2px;
+  overflow-x: auto;
+  margin: 0.5em 0;
+}
+.markdown-rendered pre code {
+  background: none;
+  padding: 0;
+}
+.markdown-rendered ul, .markdown-rendered ol { padding-left: 2em; margin: 0.5em 0; }
+.markdown-rendered blockquote {
+  border-left: 4px solid var(--border-color);
+  padding: 0 1em;
+  color: var(--text-muted);
+  margin: 1em 2em;
+}
+.markdown-rendered table { border-collapse: collapse; margin: 0.5em 0; }
+.markdown-rendered th, .markdown-rendered td {
+  border: 1px solid #000;
+  padding: 0.5em;
+  text-align: right;
+}
+.markdown-rendered th { font-weight: bold; }
+.markdown-rendered a { color: #2196f3; }
+.markdown-rendered img { max-width: 100%; }
 
 /* ─── Output Area ────────────────────────────────────── */
+/* Matches Jupyter: output_area is a horizontal box with optional prompt + output_subarea */
 
 .output-area {
-  padding: 12px;
-  background-color: #1a1a1a;
-  border-top: 1px solid #333;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
 }
 
-.text-output,
-.execute_result {
-  color: #d4d4d4;
-  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+.output-row {
+  display: flex;
+  padding: 0;
+}
+
+.output-prompt {
+  width: var(--prompt-width);
+  min-width: var(--prompt-width);
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: var(--code-padding, 0.4em) 4px var(--code-padding, 0.4em) 0;
+  user-select: none;
+}
+
+.output-content {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  padding: var(--code-padding, 0.4em);
+  max-width: calc(100% - var(--prompt-width));
+}
+
+.text-output {
+  color: var(--text-color);
+  font-family: var(--font-code);
   font-size: 13px;
+  line-height: var(--line-height-code);
   white-space: pre-wrap;
   word-break: break-all;
+}
+
+.text-output.stderr {
+  background-color: var(--bg-stderr);
 }
 
 .error-output {
-  color: #ef9a9a;
-  background-color: #2c1515;
-  padding: 8px;
-  border-radius: 3px;
-  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+  color: var(--color-error);
+  font-family: var(--font-code);
   font-size: 13px;
+  line-height: var(--line-height-code);
   white-space: pre-wrap;
   word-break: break-all;
+  overflow-x: auto;
 }
 
 .html-output {
-  color: #d4d4d4;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: var(--text-color);
+  font-family: var(--font-ui);
   font-size: 13px;
   overflow-x: auto;
 }
 
 .html-output table {
   border-collapse: collapse;
-  margin: 4px 0;
+  margin: 0 auto;
+  border: 1px solid #000;
 }
 
-.html-output th,
-.html-output td {
-  border: 1px solid #444;
-  padding: 4px 8px;
-  text-align: left;
+.html-output th, .html-output td {
+  border: 1px solid #000;
+  padding: 0.5em;
+  text-align: right;
+}
+
+.html-output tr:nth-child(odd) {
+  background-color: #f5f5f5;
+}
+
+.html-output tr:hover {
+  background-color: rgba(66, 165, 245, 0.2);
 }
 
 .html-output th {
-  background-color: #2a2a2a;
+  font-weight: bold;
 }
 
 .image-output {
+  display: block;
+  margin: 0 auto;
   max-width: 100%;
   height: auto;
+}
+
+.rich-html-output {
+  width: 100%;
+  border: none;
+  min-height: 200px;
+}
+
+/* ─── Add Cell Bar ───────────────────────────────────── */
+
+.add-cell-bar {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 2px 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.cell-container:hover .add-cell-bar {
+  opacity: 1;
+}
+
+.add-cell-bar button {
+  padding: 1px 10px;
+  font-size: 11px;
+  background: none;
+  border: 1px dashed var(--border-color);
+  border-radius: 2px;
+  color: #999;
+  cursor: pointer;
+  font-family: var(--font-ui);
+}
+
+.add-cell-bar button:hover {
+  border-color: var(--text-muted);
+  color: var(--text-color);
 }
