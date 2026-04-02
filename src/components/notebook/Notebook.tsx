@@ -76,7 +76,9 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
 
   // Listen for kernel output events and route to the correct cell
   useEffect(() => {
+    let aborted = false;
     const unlisten = listen<KernelOutput>('kernel-output', (event) => {
+      if (aborted) return; // Guard against StrictMode double-mount
       const { msg_type, content, parent_msg_id } = event.payload;
 
       // Find which cell this output belongs to
@@ -157,6 +159,7 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
     });
 
     return () => {
+      aborted = true;
       unlisten.then((fn) => fn());
     };
   }, []);
