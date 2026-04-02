@@ -1,0 +1,45 @@
+import { invoke } from '@tauri-apps/api/core';
+import type { KernelSpec, KernelInfo } from '../types/kernel';
+import type { Notebook } from '../types/notebook';
+
+// ─── Kernel Management ───────────────────────────────────────────────
+
+export async function listKernelspecs(): Promise<KernelSpec[]> {
+  return invoke<KernelSpec[]>('list_kernelspecs');
+}
+
+export async function startKernel(specName: string): Promise<string> {
+  return invoke<string>('start_kernel', { specName });
+}
+
+export async function stopKernel(kernelId: string): Promise<void> {
+  return invoke<void>('stop_kernel', { kernelId });
+}
+
+export async function interruptKernel(kernelId: string): Promise<void> {
+  return invoke<void>('interrupt_kernel', { kernelId });
+}
+
+export async function listRunningKernels(): Promise<KernelInfo[]> {
+  return invoke<KernelInfo[]>('list_running_kernels');
+}
+
+// ─── Code Execution ──────────────────────────────────────────────────
+
+export async function executeCode(
+  kernelId: string,
+  code: string,
+  silent: boolean = false,
+): Promise<string> {
+  return invoke<string>('execute_code', { kernelId, code, silent });
+}
+
+// ─── Notebook I/O ────────────────────────────────────────────────────
+
+export async function readNotebook(path: string): Promise<Notebook> {
+  return invoke<Notebook>('read_notebook', { path });
+}
+
+export async function writeNotebook(path: string, notebook: Notebook): Promise<void> {
+  return invoke<void>('write_notebook', { path, notebook });
+}
