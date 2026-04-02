@@ -174,37 +174,41 @@ pub async fn execute_code(
     let msg = JupyterMessage::execute_request(&session, &code, silent);
     let msg_id = msg.header.msg_id.clone();
 
-    let mut zmq = client.lock().await;
-    zmq.send_shell(&msg).await?;
+    // Send request, then immediately release the lock
+    {
+        let mut zmq = client.lock().await;
+        zmq.send_shell(&msg).await?;
+    }
 
-    // Wait for execute_reply on the shell channel.
-    // This blocks until the kernel finishes, which is what we want
-    // so that sequential execution (Run All) works correctly.
-    match tokio::time::timeout(
-        std::time::Duration::from_secs(300),
-        zmq.shell.recv(),
-    ).await {
-        Ok(Ok(reply_msg)) => {
-            let frames: Vec<Vec<u8>> = reply_msg.into_vec().iter().map(|f| f.to_vec()).collect();
-            if let Ok(reply) = JupyterMessage::from_wire_frames(&frames, zmq.connection.key.as_bytes()) {
-                if reply.header.msg_type == "execute_reply" {
-                    let output = KernelOutput {
-                        kernel_id: kernel_id.clone(),
-                        msg_type: "execute_reply".to_string(),
-                        content: reply.content,
-                        parent_msg_id: msg_id.clone(),
-                    };
-                    let _ = app.emit("kernel-output", &output);
+    // Read the execute_reply in a background task.
+    // This doesn't hold the shell mutex -- it re-acquires it briefly.
+    let client_clone = client.clone();
+    let kernel_id_clone = kernel_id.clone();
+    let msg_id_clone = msg_id.clone();
+    let app_clone = app.clone();
+    tokio::spawn(async move {
+        let mut zmq = client_clone.lock().await;
+        match tokio::time::timeout(
+            std::time::Duration::from_secs(300),
+            zmq.shell.recv(),
+        ).await {
+            Ok(Ok(reply_msg)) => {
+                let frames: Vec<Vec<u8>> = reply_msg.into_vec().iter().map(|f| f.to_vec()).collect();
+                if let Ok(reply) = JupyterMessage::from_wire_frames(&frames, zmq.connection.key.as_bytes()) {
+                    if reply.header.msg_type == "execute_reply" {
+                        let output = KernelOutput {
+                            kernel_id: kernel_id_clone,
+                            msg_type: "execute_reply".to_string(),
+                            content: reply.content,
+                            parent_msg_id: msg_id_clone,
+                        };
+                        let _ = app_clone.emit("kernel-output", &output);
+                    }
                 }
             }
+            _ => {}
         }
-        Ok(Err(e)) => {
-            eprintln!("Shell recv error: {}", e);
-        }
-        Err(_) => {
-            eprintln!("Shell recv timeout");
-        }
-    }
+    });
 
     Ok(msg_id)
 }

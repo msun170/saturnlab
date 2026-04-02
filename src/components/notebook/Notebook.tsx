@@ -371,21 +371,38 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
 
   const runAll = useCallback(async () => {
     if (!kernelId) return;
-    // Snapshot current cells so we iterate over the right list
     const currentCells = [...cells];
     for (let i = 0; i < currentCells.length; i++) {
       if (currentCells[i].cell_type !== 'code') continue;
 
-      // Clear outputs and mark as running
       setCells((prev) =>
         prev.map((c, idx) => (idx === i ? { ...c, outputs: [], isRunning: true } : c)),
       );
 
       try {
-        // executeCode now blocks on the Rust side until the kernel replies,
-        // so this await genuinely waits for the cell to finish
         const msgId = await executeCode(kernelId, currentCells[i].source);
         setPendingExecutions((prev) => new Map(prev).set(msgId, currentCells[i].id));
+
+        // Wait for this cell's execute_reply or status:idle via a one-shot listener
+        await new Promise<void>((resolve) => {
+          const timeout = setTimeout(resolve, 60000);
+          const unsub = listen<KernelOutput>('kernel-output', (event) => {
+            const { msg_type, content, parent_msg_id } = event.payload;
+            if (parent_msg_id !== msgId) return;
+            // execute_reply means the kernel finished this cell
+            if (msg_type === 'execute_reply') {
+              clearTimeout(timeout);
+              unsub.then((fn) => fn());
+              resolve();
+            }
+            // Also resolve on status:idle as fallback
+            if (msg_type === 'status' && content.execution_state === 'idle') {
+              clearTimeout(timeout);
+              unsub.then((fn) => fn());
+              resolve();
+            }
+          });
+        });
       } catch {
         // If one cell fails, continue to next
       }
