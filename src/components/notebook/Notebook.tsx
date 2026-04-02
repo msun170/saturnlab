@@ -74,8 +74,9 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
     }
   }, [focusedIndex, cells, onFocusedCellChange]);
 
-  // Track which msg_id belongs to which cell
-  const [_pendingExecutions, setPendingExecutions] = useState<Map<string, string>>(new Map());
+  // Track which msg_id belongs to which cell. Using ref instead of state
+  // because we don't need React re-renders when this changes.
+  const pendingRef = useRef(new Map<string, string>());
 
   // Deduplicate iopub messages — StrictMode double-mounts cause duplicate listeners.
   // Track seen message IDs to ensure each output is processed exactly once.
@@ -102,80 +103,74 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
       }
 
       // Find which cell this output belongs to
-      setPendingExecutions((prev) => {
-        const cellId = prev.get(parent_msg_id);
-        if (!cellId) return prev;
+      const cellId = pendingRef.current.get(parent_msg_id);
+      if (!cellId) return;
 
-        setCells((prevCells) =>
-          prevCells.map((cell) => {
-            if (cell.id !== cellId) return cell;
+      setCells((prevCells) =>
+        prevCells.map((cell) => {
+          if (cell.id !== cellId) return cell;
 
-            switch (msg_type) {
-              case 'stream': {
-                const text = (content.text as string) ?? '';
-                const newOutput: Output = {
-                  output_type: 'stream',
-                  text,
-                  name: (content.name as string) ?? 'stdout',
-                };
-                return { ...cell, outputs: [...cell.outputs, newOutput] };
-              }
-              case 'execute_result': {
-                const newOutput: Output = {
-                  output_type: 'execute_result',
-                  data: content.data as Record<string, unknown>,
-                  execution_count: content.execution_count as number | null,
-                };
-                return {
-                  ...cell,
-                  outputs: [...cell.outputs, newOutput],
-                  execution_count: (content.execution_count as number) ?? cell.execution_count,
-                };
-              }
-              case 'display_data': {
-                const newOutput: Output = {
-                  output_type: 'display_data',
-                  data: content.data as Record<string, unknown>,
-                };
-                return { ...cell, outputs: [...cell.outputs, newOutput] };
-              }
-              case 'error': {
-                const newOutput: Output = {
-                  output_type: 'error',
-                  ename: content.ename as string,
-                  evalue: content.evalue as string,
-                  traceback: content.traceback as string[],
-                };
-                return { ...cell, outputs: [...cell.outputs, newOutput] };
-              }
-              case 'execute_reply': {
-                // Shell reply — contains execution_count
-                const execCount = content.execution_count as number | undefined;
-                if (execCount != null) {
-                  return { ...cell, execution_count: execCount };
-                }
-                return cell;
-              }
-              case 'status': {
-                if (content.execution_state === 'idle') {
-                  return { ...cell, isRunning: false };
-                }
-                return cell;
-              }
-              default:
-                return cell;
+          switch (msg_type) {
+            case 'stream': {
+              const text = (content.text as string) ?? '';
+              const newOutput: Output = {
+                output_type: 'stream',
+                text,
+                name: (content.name as string) ?? 'stdout',
+              };
+              return { ...cell, outputs: [...cell.outputs, newOutput] };
             }
-          }),
-        );
+            case 'execute_result': {
+              const newOutput: Output = {
+                output_type: 'execute_result',
+                data: content.data as Record<string, unknown>,
+                execution_count: content.execution_count as number | null,
+              };
+              return {
+                ...cell,
+                outputs: [...cell.outputs, newOutput],
+                execution_count: (content.execution_count as number) ?? cell.execution_count,
+              };
+            }
+            case 'display_data': {
+              const newOutput: Output = {
+                output_type: 'display_data',
+                data: content.data as Record<string, unknown>,
+              };
+              return { ...cell, outputs: [...cell.outputs, newOutput] };
+            }
+            case 'error': {
+              const newOutput: Output = {
+                output_type: 'error',
+                ename: content.ename as string,
+                evalue: content.evalue as string,
+                traceback: content.traceback as string[],
+              };
+              return { ...cell, outputs: [...cell.outputs, newOutput] };
+            }
+            case 'execute_reply': {
+              const execCount = content.execution_count as number | undefined;
+              if (execCount != null) {
+                return { ...cell, execution_count: execCount, isRunning: false };
+              }
+              return { ...cell, isRunning: false };
+            }
+            case 'status': {
+              if (content.execution_state === 'idle') {
+                return { ...cell, isRunning: false };
+              }
+              return cell;
+            }
+            default:
+              return cell;
+          }
+        }),
+      );
 
-        // Clean up pending execution when done
-        if (msg_type === 'status' && content.execution_state === 'idle') {
-          const next = new Map(prev);
-          next.delete(parent_msg_id);
-          return next;
-        }
-        return prev;
-      });
+      // Clean up pending execution when done
+      if (msg_type === 'execute_reply' || (msg_type === 'status' && content.execution_state === 'idle')) {
+        pendingRef.current.delete(parent_msg_id);
+      }
     });
 
     return () => {
@@ -216,7 +211,7 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
 
       try {
         const msgId = await executeCode(kernelId, cell.source);
-        setPendingExecutions((prev) => new Map(prev).set(msgId, cell.id));
+        pendingRef.current.set(msgId, cell.id);
       } catch (e: unknown) {
         setCells((prev) =>
           prev.map((c, i) =>
@@ -381,7 +376,7 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
 
       try {
         const msgId = await executeCode(kernelId, currentCells[i].source);
-        setPendingExecutions((prev) => new Map(prev).set(msgId, currentCells[i].id));
+        pendingRef.current.set(msgId, currentCells[i].id);
 
         // Wait for this cell's execute_reply or status:idle via a one-shot listener
         await new Promise<void>((resolve) => {
