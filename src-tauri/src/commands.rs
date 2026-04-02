@@ -69,6 +69,7 @@ impl ZmqPool {
                         let parent_id = msg.parent_header
                             .get("msg_id").and_then(|v| v.as_str())
                             .unwrap_or("").to_string();
+                        eprintln!("[IOPUB] msg_type={} parent_msg_id={}", msg.header.msg_type, parent_id);
                         let _ = app1.emit("kernel-output", &KernelOutput {
                             kernel_id: kid.clone(),
                             msg_type: msg.header.msg_type.clone(),
@@ -146,16 +147,23 @@ pub async fn execute_code(
     kernel_id: String,
     code: String,
     silent: bool,
+    msg_id: Option<String>,
 ) -> Result<String, String> {
     let session = manager.get_session_id(&kernel_id).await?;
     let client = pool.get_or_connect(&kernel_id, &manager, &app).await?;
 
-    let msg = JupyterMessage::execute_request(&session, &code, silent);
+    let mut msg = JupyterMessage::execute_request(&session, &code, silent);
+    // If frontend provided a msg_id, use it so the pending map is already set
+    if let Some(id) = msg_id {
+        msg.header.msg_id = id;
+    }
     let msg_id = msg.header.msg_id.clone();
 
     {
         let mut zmq = client.lock().await;
+        eprintln!("[SHELL] Sending execute_request msg_id={}", msg_id);
         zmq.send_shell(&msg).await?;
+        eprintln!("[SHELL] Sent successfully");
     }
 
     Ok(msg_id)

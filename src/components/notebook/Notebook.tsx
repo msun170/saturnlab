@@ -78,29 +78,12 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
   // because we don't need React re-renders when this changes.
   const pendingRef = useRef(new Map<string, string>());
 
-  // Deduplicate iopub messages — StrictMode double-mounts cause duplicate listeners.
-  // Track seen message IDs to ensure each output is processed exactly once.
-  const seenMsgIds = useRef(new Set<string>());
-
   // Listen for kernel output events and route to the correct cell
   useEffect(() => {
     const unlisten = listen<KernelOutput>('kernel-output', (event) => {
       const { msg_type, content, parent_msg_id } = event.payload;
 
-      // Deduplicate: each kernel message has a unique msg_id in the header
-      const msgId = (event.payload as unknown as { content: { msg_id?: string } }).content?.msg_id
-        ?? `${parent_msg_id}-${msg_type}-${Date.now()}`;
-
-      // For status messages, don't dedup (they're idempotent)
-      if (msg_type !== 'status' && msg_type !== 'execute_reply') {
-        if (seenMsgIds.current.has(msgId)) return;
-        seenMsgIds.current.add(msgId);
-        // Prevent unbounded growth
-        if (seenMsgIds.current.size > 1000) {
-          const entries = Array.from(seenMsgIds.current);
-          seenMsgIds.current = new Set(entries.slice(-500));
-        }
-      }
+      console.log(`[Saturn] iopub: ${msg_type} parent=${parent_msg_id.slice(0, 8)}...`);
 
       // Find which cell this output belongs to
       const cellId = pendingRef.current.get(parent_msg_id);
@@ -212,8 +195,12 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
       );
 
       try {
-        const msgId = await executeCode(kernelId, cell.source);
+        // Generate msg_id FIRST, register it, THEN send.
+        // This prevents the race where iopub messages arrive before we set the pending map.
+        const msgId = crypto.randomUUID();
         pendingRef.current.set(msgId, cell.id);
+        console.log(`[Saturn] execute cell ${index}, msgId=${msgId.slice(0, 8)}..., cellId=${cell.id}`);
+        await executeCode(kernelId, cell.source, false, msgId);
       } catch (e: unknown) {
         setCells((prev) =>
           prev.map((c, i) =>
@@ -377,22 +364,25 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
       );
 
       try {
-        const msgId = await executeCode(kernelId, currentCells[i].source);
+        const msgId = crypto.randomUUID();
         pendingRef.current.set(msgId, currentCells[i].id);
 
-        // Wait for status:idle on iopub for this specific msg_id
-        await new Promise<void>((resolve) => {
+        // Set up the listener BEFORE sending so we don't miss the idle message
+        const idlePromise = new Promise<void>((resolve) => {
           const timeout = setTimeout(resolve, 60000);
           const unsub = listen<KernelOutput>('kernel-output', (event) => {
-            const { msg_type, content, parent_msg_id } = event.payload;
-            if (parent_msg_id !== msgId) return;
-            if (msg_type === 'status' && content.execution_state === 'idle') {
+            const { msg_type: mt, content: ct, parent_msg_id: pid } = event.payload;
+            if (pid !== msgId) return;
+            if (mt === 'status' && ct.execution_state === 'idle') {
               clearTimeout(timeout);
               unsub.then((fn) => fn());
               resolve();
             }
           });
         });
+
+        await executeCode(kernelId, currentCells[i].source, false, msgId);
+        await idlePromise;
       } catch {
         // If one cell fails, continue to next
       }

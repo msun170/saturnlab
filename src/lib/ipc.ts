@@ -30,8 +30,9 @@ export async function executeCode(
   kernelId: string,
   code: string,
   silent: boolean = false,
+  msgId?: string,
 ): Promise<string> {
-  return invoke<string>('execute_code', { kernelId, code, silent });
+  return invoke<string>('execute_code', { kernelId, code, silent, msgId: msgId ?? null });
 }
 
 // ─── Notebook I/O ────────────────────────────────────────────────────
