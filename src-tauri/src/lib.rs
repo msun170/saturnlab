@@ -6,6 +6,7 @@ mod notebook;
 mod session;
 mod settings;
 
+use commands::ZmqPool;
 use kernel::manager::KernelManager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -14,6 +15,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(KernelManager::new())
+        .manage(ZmqPool::new())
         .invoke_handler(tauri::generate_handler![
             // Kernel management
             commands::list_kernelspecs,

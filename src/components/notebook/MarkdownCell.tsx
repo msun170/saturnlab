@@ -107,7 +107,10 @@ export default function MarkdownCell({
       view.destroy();
       viewRef.current = null;
     };
-  }, [isEditing, source, onExecute]);
+    // Only recreate editor when entering/exiting edit mode — NOT on source changes.
+    // source is read once as initial value. onChangeRef handles updates.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditing]);
 
   if (isEditing) {
     return (
