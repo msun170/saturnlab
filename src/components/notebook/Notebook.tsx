@@ -14,6 +14,7 @@ interface CellState {
   outputs: Output[];
   execution_count: number | null;
   isRunning: boolean;
+  outputHidden: boolean;
 }
 
 interface NotebookProps {
@@ -37,6 +38,7 @@ function cellFromNotebook(cell: Cell): CellState {
     outputs: cell.outputs ?? [],
     execution_count: typeof cell.execution_count === 'number' ? cell.execution_count : null,
     isRunning: false,
+    outputHidden: false,
   };
 }
 
@@ -241,6 +243,7 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
       outputs: [],
       execution_count: null,
       isRunning: false,
+      outputHidden: false,
     };
     setCells((prev) => {
       const next = [...prev];
@@ -281,6 +284,7 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
       outputs: [],
       execution_count: null,
       isRunning: false,
+      outputHidden: false,
     };
     setCells((prev) => {
       const next = [...prev];
@@ -448,6 +452,9 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
         return lastKeyRef.current.key === key && (now - lastKeyRef.current.time) < 500;
       };
 
+      // Double-press detection: check BEFORE handling
+      const isDouble = isDoublePress(e.key);
+
       switch (e.key) {
         case 'Enter':
           e.preventDefault();
@@ -510,49 +517,37 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
           break;
         case 'o':
           e.preventDefault();
-          // Toggle output visibility for focused cell
           setCells((prev) =>
-            prev.map((c, idx) => {
-              if (idx !== focusedIndex || c.cell_type !== 'code') return c;
-              return { ...c, outputHidden: !((c as unknown as { outputHidden?: boolean }).outputHidden) } as CellState;
-            }),
+            prev.map((c, idx) =>
+              idx === focusedIndex && c.cell_type === 'code'
+                ? { ...c, outputHidden: !c.outputHidden }
+                : c,
+            ),
           );
           break;
         // Double-press shortcuts (Jupyter d,d / i,i / 0,0)
         case 'd':
           e.preventDefault();
-          if (isDoublePress('d')) {
+          if (isDouble) {
             deleteCell(focusedIndex);
-            lastKeyRef.current = { key: '', time: 0 };
           }
           break;
         case 'i':
           e.preventDefault();
-          if (isDoublePress('i')) {
-            if (kernelId) {
-              import('../../lib/ipc').then(({ interruptKernel }) => interruptKernel(kernelId));
-            }
-            lastKeyRef.current = { key: '', time: 0 };
+          if (isDouble && kernelId) {
+            import('../../lib/ipc').then(({ interruptKernel }) => interruptKernel(kernelId));
           }
           break;
         case '0':
           e.preventDefault();
-          if (isDoublePress('0')) {
-            // Restart kernel (handled at app level, just stop here)
-            if (kernelId) {
-              import('../../lib/ipc').then(({ stopKernel }) => stopKernel(kernelId));
-            }
-            lastKeyRef.current = { key: '', time: 0 };
+          if (isDouble && kernelId) {
+            import('../../lib/ipc').then(({ stopKernel }) => stopKernel(kernelId));
           }
           break;
       }
 
-      // Track for double-press detection
-      if (['d', 'i', '0'].includes(e.key)) {
-        lastKeyRef.current = { key: e.key, time: now };
-      } else {
-        lastKeyRef.current = { key: '', time: 0 };
-      }
+      // Track last key for double-press detection
+      lastKeyRef.current = { key: e.key, time: now };
     }
 
     window.addEventListener('keydown', handleKeyDown);
@@ -597,7 +592,7 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
                 onExecute={() => handleExecuteCell(index)}
                 onFocus={() => { setFocusedIndex(index); setEditMode(true); }}
               />
-              <OutputArea outputs={cell.outputs} />
+              {!cell.outputHidden && <OutputArea outputs={cell.outputs} />}
             </>
           ) : (
             <MarkdownCell
