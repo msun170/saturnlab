@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import Notebook from './components/notebook/Notebook';
 import type { NotebookHandle } from './components/notebook/Notebook';
+import MenuBar from './components/toolbar/MenuBar';
 import { listKernelspecs, startKernel, stopKernel, readNotebook, writeNotebook } from './lib/ipc';
 import type { KernelSpec } from './types/kernel';
 import type { Notebook as NotebookType } from './types/notebook';
@@ -121,6 +122,33 @@ function App() {
     }
   }, [filePath, notebook]);
 
+  const handleSaveAs = useCallback(async () => {
+    try {
+      const selected = await save({
+        filters: [{ name: 'Jupyter Notebook', extensions: ['ipynb'] }],
+        defaultPath: 'Untitled.ipynb',
+      });
+      if (!selected) return;
+      setFilePath(selected);
+      await writeNotebook(selected, notebook);
+    } catch (e: unknown) {
+      setError(`Failed to save: ${e}`);
+    }
+  }, [notebook]);
+
+  const handleNewNotebook = useCallback(() => {
+    setNotebook(createEmptyNotebook());
+    setFilePath(null);
+  }, []);
+
+  const handleRestartKernel = useCallback(async () => {
+    if (!kernelId) return;
+    await handleStopKernel();
+    if (kernelspecs.length > 0) {
+      handleStartKernel(kernelspecs[0].name);
+    }
+  }, [kernelId, kernelspecs, handleStopKernel, handleStartKernel]);
+
   // ─── Keyboard Shortcuts ────────────────────────────────────────
 
   useEffect(() => {
@@ -144,117 +172,66 @@ function App() {
 
   return (
     <div className="app">
-      {/* Menu bar */}
-      <div className="menu-bar">
-        <span className="menu-item" onClick={handleOpenFile}>File</span>
-        <span className="menu-item">Edit</span>
-        <span className="menu-item">View</span>
-        <span className="menu-item">Insert</span>
-        <span className="menu-item">Cell</span>
-        <span className="menu-item">Kernel</span>
-        <span className="menu-item">Help</span>
-        <span className="file-name">{fileName}</span>
-      </div>
+      {/* Menu bar with real dropdowns */}
+      <MenuBar
+        onOpen={handleOpenFile}
+        onSave={handleSaveFile}
+        onSaveAs={handleSaveAs}
+        onNewNotebook={handleNewNotebook}
+        onDownloadPy={() => {/* TODO */}}
+        onCutCell={() => notebookRef.current?.cutCell()}
+        onCopyCell={() => notebookRef.current?.copyCell()}
+        onPasteCell={() => notebookRef.current?.pasteCell()}
+        onDeleteCell={() => notebookRef.current?.deleteFocusedCell()}
+        onUndoDelete={() => notebookRef.current?.undoDelete()}
+        onInsertAbove={() => notebookRef.current?.addCellAbove('code')}
+        onInsertBelow={() => notebookRef.current?.addCellBelow('code')}
+        onRunCell={() => notebookRef.current?.runCell()}
+        onRunAll={() => {/* TODO */}}
+        onChangeCellType={(type) => notebookRef.current?.changeFocusedCellType(type)}
+        onInterruptKernel={() => notebookRef.current?.interruptKernel()}
+        onRestartKernel={handleRestartKernel}
+        onRestartAndClear={async () => { await handleRestartKernel(); /* TODO: clear outputs */ }}
+        onRestartAndRunAll={async () => { await handleRestartKernel(); /* TODO: run all */ }}
+        onToggleLineNumbers={() => {/* TODO */}}
+        onShowShortcuts={() => {/* TODO: show shortcuts modal */}}
+        fileName={fileName ?? 'Untitled.ipynb'}
+        hasKernel={!!kernelId}
+      />
 
-      {/* Toolbar — matches classic Jupyter Notebook layout */}
+      {/* Toolbar */}
       <div className="toolbar">
-        {/* Group 1: Save */}
         <div className="toolbar-group">
-          <button onClick={handleSaveFile} className="toolbar-btn" title="Save (Ctrl+S)">
-            💾
-          </button>
+          <button onClick={handleSaveFile} className="toolbar-btn" title="Save (Ctrl+S)">💾</button>
         </div>
-
-        {/* Group 2: Insert Cell Below */}
         <div className="toolbar-group">
-          <button onClick={() => notebookRef.current?.addCellBelow('code')} className="toolbar-btn" title="Insert Cell Below">
-            +
-          </button>
+          <button onClick={() => notebookRef.current?.addCellBelow('code')} className="toolbar-btn" title="Insert Cell Below">+</button>
         </div>
-
-        {/* Group 3: Cut/Copy/Paste Cells */}
         <div className="toolbar-group">
-          <button onClick={() => notebookRef.current?.cutCell()} className="toolbar-btn" title="Cut Cell">
-            ✂
-          </button>
-          <button onClick={() => notebookRef.current?.copyCell()} className="toolbar-btn" title="Copy Cell">
-            ⧉
-          </button>
-          <button onClick={() => notebookRef.current?.pasteCell()} className="toolbar-btn" title="Paste Cell Below">
-            📋
-          </button>
+          <button onClick={() => notebookRef.current?.cutCell()} className="toolbar-btn" title="Cut Cell">✂</button>
+          <button onClick={() => notebookRef.current?.copyCell()} className="toolbar-btn" title="Copy Cell">⧉</button>
+          <button onClick={() => notebookRef.current?.pasteCell()} className="toolbar-btn" title="Paste Cell Below">📋</button>
         </div>
-
-        {/* Group 4: Move Cells */}
         <div className="toolbar-group">
-          <button onClick={() => notebookRef.current?.moveFocusedCell('up')} className="toolbar-btn" title="Move Cell Up">
-            ↑
-          </button>
-          <button onClick={() => notebookRef.current?.moveFocusedCell('down')} className="toolbar-btn" title="Move Cell Down">
-            ↓
-          </button>
+          <button onClick={() => notebookRef.current?.moveFocusedCell('up')} className="toolbar-btn" title="Move Up">↑</button>
+          <button onClick={() => notebookRef.current?.moveFocusedCell('down')} className="toolbar-btn" title="Move Down">↓</button>
         </div>
-
-        {/* Group 5: Run / Stop / Restart */}
         <div className="toolbar-group">
-          <button
-            onClick={() => notebookRef.current?.runCell()}
-            className="toolbar-btn run-btn"
-            title="Run Cell (Shift+Enter)"
-            disabled={!kernelId}
-          >
-            ▶ Run
-          </button>
-          <button
-            onClick={() => notebookRef.current?.interruptKernel()}
-            className="toolbar-btn"
-            title="Interrupt Kernel"
-            disabled={!kernelId}
-          >
-            ⏹
-          </button>
-          <button
-            onClick={async () => {
-              if (kernelId) {
-                await handleStopKernel();
-                if (kernelspecs.length > 0) {
-                  handleStartKernel(kernelspecs[0].name);
-                }
-              }
-            }}
-            className="toolbar-btn"
-            title="Restart Kernel"
-            disabled={!kernelId}
-          >
-            ⟳
-          </button>
+          <button onClick={() => notebookRef.current?.runCell()} className="toolbar-btn run-btn" title="Run (Shift+Enter)" disabled={!kernelId}>▶ Run</button>
+          <button onClick={() => notebookRef.current?.interruptKernel()} className="toolbar-btn" title="Interrupt" disabled={!kernelId}>⏹</button>
+          <button onClick={handleRestartKernel} className="toolbar-btn" title="Restart Kernel" disabled={!kernelId}>⟳</button>
         </div>
-
-        {/* Group 6: Cell Type Selector */}
         <div className="toolbar-group">
-          <select
-            className="cell-type-select"
-            value={focusedCellType}
-            onChange={(e) => notebookRef.current?.changeFocusedCellType(e.target.value as 'code' | 'markdown')}
-          >
+          <select className="cell-type-select" value={focusedCellType} onChange={(e) => notebookRef.current?.changeFocusedCellType(e.target.value as 'code' | 'markdown')}>
             <option value="code">Code</option>
             <option value="markdown">Markdown</option>
           </select>
         </div>
-
-        {/* Kernel selector (right side) */}
         <div className="toolbar-spacer" />
-
         {!kernelId ? (
           kernelspecs.length > 0 && (
             <div className="toolbar-group">
-              <select
-                className="kernel-select"
-                defaultValue=""
-                onChange={(e) => {
-                  if (e.target.value) handleStartKernel(e.target.value);
-                }}
-              >
+              <select className="kernel-select" defaultValue="" onChange={(e) => { if (e.target.value) handleStartKernel(e.target.value); }}>
                 <option value="" disabled>Start Kernel...</option>
                 {kernelspecs.map((spec) => (
                   <option key={spec.name} value={spec.name}>{spec.display_name}</option>
