@@ -1,7 +1,7 @@
 use crate::kernel::message::JupyterMessage;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use zeromq::{DealerSocket, PubSocket, Socket, SocketRecv, SocketSend, SubSocket};
+use zeromq::{DealerSocket, Socket, SocketRecv, SocketSend, SubSocket};
 
 /// Connection info from the kernel's connection file.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -59,36 +59,23 @@ impl ConnectionInfo {
     }
 }
 
-/// ZMQ client that connects to all 5 Jupyter kernel channels.
-pub struct ZmqClient {
+/// Shell-only ZMQ client for sending execute requests.
+/// Does NOT connect to iopub — that's handled by IopubListener.
+pub struct ShellClient {
     pub shell: DealerSocket,
-    pub iopub: SubSocket,
     pub control: DealerSocket,
     pub connection: ConnectionInfo,
 }
 
-impl ZmqClient {
-    /// Connect to a kernel using its connection info.
+impl ShellClient {
+    /// Connect shell and control channels only (no iopub).
     pub async fn connect(conn: ConnectionInfo) -> Result<Self, String> {
-        // Shell channel (DEALER)
         let mut shell = DealerSocket::new();
         shell
             .connect(&conn.endpoint(conn.shell_port))
             .await
             .map_err(|e| format!("Shell connect: {}", e))?;
 
-        // IOPub channel (SUB) — subscribe to all messages
-        let mut iopub = SubSocket::new();
-        iopub
-            .connect(&conn.endpoint(conn.iopub_port))
-            .await
-            .map_err(|e| format!("IOPub connect: {}", e))?;
-        iopub
-            .subscribe("")
-            .await
-            .map_err(|e| format!("IOPub subscribe: {}", e))?;
-
-        // Control channel (DEALER)
         let mut control = DealerSocket::new();
         control
             .connect(&conn.endpoint(conn.control_port))
@@ -97,7 +84,6 @@ impl ZmqClient {
 
         Ok(Self {
             shell,
-            iopub,
             control,
             connection: conn,
         })
@@ -122,8 +108,103 @@ impl ZmqClient {
             .await
             .map_err(|e| format!("Control send: {}", e))
     }
+}
+
+/// Dedicated iopub listener — exactly ONE per kernel.
+pub struct IopubListener {
+    pub iopub: SubSocket,
+    pub connection: ConnectionInfo,
+}
+
+impl IopubListener {
+    /// Connect to the iopub channel only.
+    pub async fn connect(conn: ConnectionInfo) -> Result<Self, String> {
+        let mut iopub = SubSocket::new();
+        iopub
+            .connect(&conn.endpoint(conn.iopub_port))
+            .await
+            .map_err(|e| format!("IOPub connect: {}", e))?;
+        iopub
+            .subscribe("")
+            .await
+            .map_err(|e| format!("IOPub subscribe: {}", e))?;
+
+        Ok(Self {
+            iopub,
+            connection: conn,
+        })
+    }
 
     /// Receive the next message from the iopub channel.
+    pub async fn recv(&mut self) -> Result<JupyterMessage, String> {
+        let zmq_msg = self
+            .iopub
+            .recv()
+            .await
+            .map_err(|e| format!("IOPub recv: {}", e))?;
+        let frames = zmq_message_to_frames(zmq_msg);
+        JupyterMessage::from_wire_frames(&frames, self.connection.key.as_bytes())
+    }
+}
+
+/// For backwards compat — full client with all channels.
+pub struct ZmqClient {
+    pub shell: DealerSocket,
+    pub iopub: SubSocket,
+    pub control: DealerSocket,
+    pub connection: ConnectionInfo,
+}
+
+impl ZmqClient {
+    pub async fn connect(conn: ConnectionInfo) -> Result<Self, String> {
+        let mut shell = DealerSocket::new();
+        shell
+            .connect(&conn.endpoint(conn.shell_port))
+            .await
+            .map_err(|e| format!("Shell connect: {}", e))?;
+
+        let mut iopub = SubSocket::new();
+        iopub
+            .connect(&conn.endpoint(conn.iopub_port))
+            .await
+            .map_err(|e| format!("IOPub connect: {}", e))?;
+        iopub
+            .subscribe("")
+            .await
+            .map_err(|e| format!("IOPub subscribe: {}", e))?;
+
+        let mut control = DealerSocket::new();
+        control
+            .connect(&conn.endpoint(conn.control_port))
+            .await
+            .map_err(|e| format!("Control connect: {}", e))?;
+
+        Ok(Self {
+            shell,
+            iopub,
+            control,
+            connection: conn,
+        })
+    }
+
+    pub async fn send_shell(&mut self, msg: &JupyterMessage) -> Result<(), String> {
+        let frames = msg.to_wire_frames(self.connection.key.as_bytes());
+        let zmq_msg = frames_to_zmq_message(frames);
+        self.shell
+            .send(zmq_msg)
+            .await
+            .map_err(|e| format!("Shell send: {}", e))
+    }
+
+    pub async fn send_control(&mut self, msg: &JupyterMessage) -> Result<(), String> {
+        let frames = msg.to_wire_frames(self.connection.key.as_bytes());
+        let zmq_msg = frames_to_zmq_message(frames);
+        self.control
+            .send(zmq_msg)
+            .await
+            .map_err(|e| format!("Control send: {}", e))
+    }
+
     pub async fn recv_iopub(&mut self) -> Result<JupyterMessage, String> {
         let zmq_msg = self
             .iopub
@@ -134,7 +215,6 @@ impl ZmqClient {
         JupyterMessage::from_wire_frames(&frames, self.connection.key.as_bytes())
     }
 
-    /// Receive the next message from the shell channel.
     pub async fn recv_shell(&mut self) -> Result<JupyterMessage, String> {
         let zmq_msg = self
             .shell

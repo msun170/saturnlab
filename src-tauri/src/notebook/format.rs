@@ -128,3 +128,82 @@ impl Notebook {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_cell_source_string() {
+        let source = CellSource::String("print('hello')".to_string());
+        assert_eq!(source.as_string(), "print('hello')");
+    }
+
+    #[test]
+    fn test_cell_source_lines() {
+        let source = CellSource::Lines(vec![
+            "import pandas as pd\n".to_string(),
+            "df = pd.read_csv('test.csv')".to_string(),
+        ]);
+        assert_eq!(
+            source.as_string(),
+            "import pandas as pd\ndf = pd.read_csv('test.csv')"
+        );
+    }
+
+    #[test]
+    fn test_parse_notebook_json() {
+        let json = r#"{
+            "nbformat": 4,
+            "nbformat_minor": 5,
+            "metadata": {
+                "kernelspec": {
+                    "name": "python3",
+                    "display_name": "Python 3",
+                    "language": "python"
+                }
+            },
+            "cells": [
+                {
+                    "cell_type": "code",
+                    "source": ["print('hello')\n"],
+                    "metadata": {},
+                    "outputs": [
+                        {
+                            "output_type": "stream",
+                            "name": "stdout",
+                            "text": ["hello\n"]
+                        }
+                    ],
+                    "execution_count": 1
+                },
+                {
+                    "cell_type": "markdown",
+                    "source": "Title heading",
+                    "metadata": {}
+                }
+            ]
+        }"#;
+
+        let nb: Notebook = serde_json::from_str(json).unwrap();
+        assert_eq!(nb.nbformat, 4);
+        assert_eq!(nb.cells.len(), 2);
+        assert_eq!(nb.cells[0].cell_type, CellType::Code);
+        assert_eq!(nb.cells[1].cell_type, CellType::Markdown);
+        assert_eq!(nb.cells[0].source.as_string(), "print('hello')\n");
+
+        let outputs = nb.cells[0].outputs.as_ref().unwrap();
+        assert_eq!(outputs.len(), 1);
+        assert_eq!(outputs[0].output_type, "stream");
+    }
+
+    #[test]
+    fn test_roundtrip_notebook() {
+        let nb = Notebook::new("python3", "Python 3", "python");
+        let json = serde_json::to_string(&nb).unwrap();
+        let parsed: Notebook = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.nbformat, 4);
+        assert_eq!(parsed.cells.len(), 1);
+        assert_eq!(parsed.cells[0].cell_type, CellType::Code);
+    }
+}

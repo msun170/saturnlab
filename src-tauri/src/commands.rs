@@ -1,7 +1,8 @@
 use crate::kernel::discovery::KernelSpec;
 use crate::kernel::manager::{KernelInfo, KernelManager};
 use crate::kernel::message::JupyterMessage;
-use crate::kernel::zmq_client::ZmqClient;
+use crate::kernel::zmq_client::{IopubListener, ShellClient};
+use zeromq::SocketRecv;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -18,52 +19,52 @@ pub struct KernelOutput {
 }
 
 /// Manages persistent ZMQ connections per kernel.
-/// Each kernel gets ONE iopub listener, not one per execution.
+/// ShellClient for sending requests, IopubListener (exactly ONE) for receiving outputs.
 pub struct ZmqPool {
-    connections: Arc<RwLock<HashMap<String, Arc<tokio::sync::Mutex<ZmqClient>>>>>,
+    shells: Arc<RwLock<HashMap<String, Arc<tokio::sync::Mutex<ShellClient>>>>>,
 }
 
 impl ZmqPool {
     pub fn new() -> Self {
         Self {
-            connections: Arc::new(RwLock::new(HashMap::new())),
+            shells: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
-    /// Get or create a ZMQ connection for a kernel, and start the iopub listener if new.
+    /// Get or create a shell connection for a kernel, and start the iopub listener if new.
     pub async fn get_or_connect(
         &self,
         kernel_id: &str,
         manager: &KernelManager,
         app: &tauri::AppHandle,
-    ) -> Result<Arc<tokio::sync::Mutex<ZmqClient>>, String> {
+    ) -> Result<Arc<tokio::sync::Mutex<ShellClient>>, String> {
         // Check if we already have a connection
         {
-            let conns = self.connections.read().await;
+            let conns = self.shells.read().await;
             if let Some(client) = conns.get(kernel_id) {
                 return Ok(client.clone());
             }
         }
 
-        // Create new connection
         let conn_info = manager.get_connection_info(kernel_id).await?;
-        let zmq = ZmqClient::connect(conn_info.clone()).await?;
-        let client = Arc::new(tokio::sync::Mutex::new(zmq));
+
+        // Create shell-only connection (no iopub socket)
+        let shell = ShellClient::connect(conn_info.clone()).await?;
+        let client = Arc::new(tokio::sync::Mutex::new(shell));
 
         // Store it
         {
-            let mut conns = self.connections.write().await;
+            let mut conns = self.shells.write().await;
             conns.insert(kernel_id.to_string(), client.clone());
         }
 
-        // Start a single persistent iopub listener for this kernel
+        // Start exactly ONE iopub listener for this kernel
         let kernel_id_owned = kernel_id.to_string();
         let app_handle = app.clone();
         let conn_for_iopub = conn_info.clone();
         tokio::spawn(async move {
-            // Create a separate ZMQ connection just for iopub (SUB socket)
-            let mut iopub_client = match ZmqClient::connect(conn_for_iopub).await {
-                Ok(c) => c,
+            let mut listener = match IopubListener::connect(conn_for_iopub).await {
+                Ok(l) => l,
                 Err(e) => {
                     eprintln!("Failed to connect iopub for {}: {}", kernel_id_owned, e);
                     return;
@@ -71,7 +72,7 @@ impl ZmqPool {
             };
 
             loop {
-                match iopub_client.recv_iopub().await {
+                match listener.recv().await {
                     Ok(reply) => {
                         let msg_type = reply.header.msg_type.clone();
                         let parent_id = reply
@@ -103,7 +104,7 @@ impl ZmqPool {
 
     /// Remove connection when kernel is stopped.
     pub async fn disconnect(&self, kernel_id: &str) {
-        let mut conns = self.connections.write().await;
+        let mut conns = self.shells.write().await;
         conns.remove(kernel_id);
     }
 }
@@ -179,7 +180,37 @@ pub async fn execute_code(
         zmq.send_shell(&msg).await?;
     }
 
-    // Don't spawn a new iopub listener — the persistent one handles all messages
+    // Read execute_reply from shell to get execution_count
+    // Do this in a spawned task so we don't block the IPC call
+    let kernel_id_clone = kernel_id.clone();
+    let msg_id_clone = msg_id.clone();
+    let client_clone = client.clone();
+    tokio::spawn(async move {
+        // Wait a bit for the kernel to process, then read the reply
+        let mut zmq = client_clone.lock().await;
+        // The shell socket is DEALER, so we receive the reply directly
+        match tokio::time::timeout(
+            std::time::Duration::from_secs(300),
+            zmq.shell.recv(),
+        ).await {
+            Ok(Ok(reply_msg)) => {
+                let frames: Vec<Vec<u8>> = reply_msg.into_vec().iter().map(|f| f.to_vec()).collect();
+                if let Ok(reply) = JupyterMessage::from_wire_frames(&frames, zmq.connection.key.as_bytes()) {
+                    if reply.header.msg_type == "execute_reply" {
+                        let output = KernelOutput {
+                            kernel_id: kernel_id_clone,
+                            msg_type: "execute_reply".to_string(),
+                            content: reply.content,
+                            parent_msg_id: msg_id_clone,
+                        };
+                        let _ = app.emit("kernel-output", &output);
+                    }
+                }
+            }
+            _ => {}
+        }
+    });
+
     Ok(msg_id)
 }
 

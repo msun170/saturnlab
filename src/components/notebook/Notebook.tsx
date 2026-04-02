@@ -126,6 +126,14 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
                 };
                 return { ...cell, outputs: [...cell.outputs, newOutput] };
               }
+              case 'execute_reply': {
+                // Shell reply — contains execution_count
+                const execCount = content.execution_count as number | undefined;
+                if (execCount != null) {
+                  return { ...cell, execution_count: execCount };
+                }
+                return cell;
+              }
               case 'status': {
                 if (content.execution_state === 'idle') {
                   return { ...cell, isRunning: false };
