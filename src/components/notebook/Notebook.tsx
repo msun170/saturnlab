@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { useState, useCallback, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import CodeCell from './CodeCell';
 import MarkdownCell from './MarkdownCell';
@@ -74,12 +74,29 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
   // Track which msg_id belongs to which cell
   const [_pendingExecutions, setPendingExecutions] = useState<Map<string, string>>(new Map());
 
+  // Deduplicate iopub messages — StrictMode double-mounts cause duplicate listeners.
+  // Track seen message IDs to ensure each output is processed exactly once.
+  const seenMsgIds = useRef(new Set<string>());
+
   // Listen for kernel output events and route to the correct cell
   useEffect(() => {
-    let aborted = false;
     const unlisten = listen<KernelOutput>('kernel-output', (event) => {
-      if (aborted) return; // Guard against StrictMode double-mount
       const { msg_type, content, parent_msg_id } = event.payload;
+
+      // Deduplicate: each kernel message has a unique msg_id in the header
+      const msgId = (event.payload as unknown as { content: { msg_id?: string } }).content?.msg_id
+        ?? `${parent_msg_id}-${msg_type}-${Date.now()}`;
+
+      // For status messages, don't dedup (they're idempotent)
+      if (msg_type !== 'status' && msg_type !== 'execute_reply') {
+        if (seenMsgIds.current.has(msgId)) return;
+        seenMsgIds.current.add(msgId);
+        // Prevent unbounded growth
+        if (seenMsgIds.current.size > 1000) {
+          const entries = Array.from(seenMsgIds.current);
+          seenMsgIds.current = new Set(entries.slice(-500));
+        }
+      }
 
       // Find which cell this output belongs to
       setPendingExecutions((prev) => {
@@ -159,7 +176,6 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
     });
 
     return () => {
-      aborted = true;
       unlisten.then((fn) => fn());
     };
   }, []);
