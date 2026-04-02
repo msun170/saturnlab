@@ -372,13 +372,37 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
   const runAll = useCallback(async () => {
     if (!kernelId) return;
     for (let i = 0; i < cells.length; i++) {
-      if (cells[i].cell_type === 'code') {
-        await handleExecuteCell(i);
-        // Small delay so the kernel processes sequentially
-        await new Promise((r) => setTimeout(r, 100));
+      if (cells[i].cell_type !== 'code') continue;
+
+      // Clear outputs and mark as running
+      setCells((prev) =>
+        prev.map((c, idx) => (idx === i ? { ...c, outputs: [], isRunning: true } : c)),
+      );
+
+      try {
+        const msgId = await executeCode(kernelId, cells[i].source);
+        setPendingExecutions((prev) => new Map(prev).set(msgId, cells[i].id));
+
+        // Wait for this cell to finish (poll isRunning state)
+        await new Promise<void>((resolve) => {
+          const check = setInterval(() => {
+            setCells((current) => {
+              const cell = current.find((c) => c.id === cells[i].id);
+              if (cell && !cell.isRunning) {
+                clearInterval(check);
+                resolve();
+              }
+              return current;
+            });
+          }, 200);
+          // Safety timeout: don't wait forever
+          setTimeout(() => { clearInterval(check); resolve(); }, 60000);
+        });
+      } catch {
+        // If one cell fails, continue to next
       }
     }
-  }, [kernelId, cells, handleExecuteCell]);
+  }, [kernelId, cells]);
 
   // ─── Clear All Outputs ─────────────────────────────────────────
 

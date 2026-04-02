@@ -145,9 +145,10 @@ function App() {
 
   const handleRestartKernel = useCallback(async () => {
     if (!kernelId) return;
+    const specName = kernelspecs.length > 0 ? kernelspecs[0].name : null;
     await handleStopKernel();
-    if (kernelspecs.length > 0) {
-      handleStartKernel(kernelspecs[0].name);
+    if (specName) {
+      await handleStartKernel(specName);
     }
   }, [kernelId, kernelspecs, handleStopKernel, handleStartKernel]);
 
@@ -194,7 +195,12 @@ function App() {
         onInterruptKernel={() => notebookRef.current?.interruptKernel()}
         onRestartKernel={handleRestartKernel}
         onRestartAndClear={async () => { notebookRef.current?.clearAllOutputs(); await handleRestartKernel(); }}
-        onRestartAndRunAll={async () => { await handleRestartKernel(); notebookRef.current?.runAll(); }}
+        onRestartAndRunAll={async () => {
+          await handleRestartKernel();
+          // Wait for React to propagate the new kernelId to the Notebook
+          await new Promise((r) => setTimeout(r, 500));
+          notebookRef.current?.runAll();
+        }}
         onToggleLineNumbers={() => notebookRef.current?.toggleLineNumbers()}
         onShowShortcuts={() => setShowShortcuts(true)}
         fileName={fileName ?? 'Untitled.ipynb'}
