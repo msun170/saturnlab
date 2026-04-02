@@ -371,8 +371,10 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
 
   const runAll = useCallback(async () => {
     if (!kernelId) return;
-    for (let i = 0; i < cells.length; i++) {
-      if (cells[i].cell_type !== 'code') continue;
+    // Snapshot current cells so we iterate over the right list
+    const currentCells = [...cells];
+    for (let i = 0; i < currentCells.length; i++) {
+      if (currentCells[i].cell_type !== 'code') continue;
 
       // Clear outputs and mark as running
       setCells((prev) =>
@@ -380,24 +382,10 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
       );
 
       try {
-        const msgId = await executeCode(kernelId, cells[i].source);
-        setPendingExecutions((prev) => new Map(prev).set(msgId, cells[i].id));
-
-        // Wait for this cell to finish (poll isRunning state)
-        await new Promise<void>((resolve) => {
-          const check = setInterval(() => {
-            setCells((current) => {
-              const cell = current.find((c) => c.id === cells[i].id);
-              if (cell && !cell.isRunning) {
-                clearInterval(check);
-                resolve();
-              }
-              return current;
-            });
-          }, 200);
-          // Safety timeout: don't wait forever
-          setTimeout(() => { clearInterval(check); resolve(); }, 60000);
-        });
+        // executeCode now blocks on the Rust side until the kernel replies,
+        // so this await genuinely waits for the cell to finish
+        const msgId = await executeCode(kernelId, currentCells[i].source);
+        setPendingExecutions((prev) => new Map(prev).set(msgId, currentCells[i].id));
       } catch {
         // If one cell fails, continue to next
       }

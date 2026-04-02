@@ -171,45 +171,40 @@ pub async fn execute_code(
     let session = manager.get_session_id(&kernel_id).await?;
     let client = pool.get_or_connect(&kernel_id, &manager, &app).await?;
 
-    // Create and send execute_request on the shell channel
     let msg = JupyterMessage::execute_request(&session, &code, silent);
     let msg_id = msg.header.msg_id.clone();
 
-    {
-        let mut zmq = client.lock().await;
-        zmq.send_shell(&msg).await?;
-    }
+    let mut zmq = client.lock().await;
+    zmq.send_shell(&msg).await?;
 
-    // Read execute_reply from shell to get execution_count
-    // Do this in a spawned task so we don't block the IPC call
-    let kernel_id_clone = kernel_id.clone();
-    let msg_id_clone = msg_id.clone();
-    let client_clone = client.clone();
-    tokio::spawn(async move {
-        // Wait a bit for the kernel to process, then read the reply
-        let mut zmq = client_clone.lock().await;
-        // The shell socket is DEALER, so we receive the reply directly
-        match tokio::time::timeout(
-            std::time::Duration::from_secs(300),
-            zmq.shell.recv(),
-        ).await {
-            Ok(Ok(reply_msg)) => {
-                let frames: Vec<Vec<u8>> = reply_msg.into_vec().iter().map(|f| f.to_vec()).collect();
-                if let Ok(reply) = JupyterMessage::from_wire_frames(&frames, zmq.connection.key.as_bytes()) {
-                    if reply.header.msg_type == "execute_reply" {
-                        let output = KernelOutput {
-                            kernel_id: kernel_id_clone,
-                            msg_type: "execute_reply".to_string(),
-                            content: reply.content,
-                            parent_msg_id: msg_id_clone,
-                        };
-                        let _ = app.emit("kernel-output", &output);
-                    }
+    // Wait for execute_reply on the shell channel.
+    // This blocks until the kernel finishes, which is what we want
+    // so that sequential execution (Run All) works correctly.
+    match tokio::time::timeout(
+        std::time::Duration::from_secs(300),
+        zmq.shell.recv(),
+    ).await {
+        Ok(Ok(reply_msg)) => {
+            let frames: Vec<Vec<u8>> = reply_msg.into_vec().iter().map(|f| f.to_vec()).collect();
+            if let Ok(reply) = JupyterMessage::from_wire_frames(&frames, zmq.connection.key.as_bytes()) {
+                if reply.header.msg_type == "execute_reply" {
+                    let output = KernelOutput {
+                        kernel_id: kernel_id.clone(),
+                        msg_type: "execute_reply".to_string(),
+                        content: reply.content,
+                        parent_msg_id: msg_id.clone(),
+                    };
+                    let _ = app.emit("kernel-output", &output);
                 }
             }
-            _ => {}
         }
-    });
+        Ok(Err(e)) => {
+            eprintln!("Shell recv error: {}", e);
+        }
+        Err(_) => {
+            eprintln!("Shell recv timeout");
+        }
+    }
 
     Ok(msg_id)
 }
