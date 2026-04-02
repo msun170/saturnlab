@@ -83,8 +83,6 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
     const unlisten = listen<KernelOutput>('kernel-output', (event) => {
       const { msg_type, content, parent_msg_id } = event.payload;
 
-      console.log(`[Saturn] iopub: ${msg_type} parent=${parent_msg_id.slice(0, 8)}...`);
-
       // Find which cell this output belongs to
       const cellId = pendingRef.current.get(parent_msg_id);
       if (!cellId) return;
@@ -199,7 +197,6 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
         // This prevents the race where iopub messages arrive before we set the pending map.
         const msgId = crypto.randomUUID();
         pendingRef.current.set(msgId, cell.id);
-        console.log(`[Saturn] execute cell ${index}, msgId=${msgId.slice(0, 8)}..., cellId=${cell.id}`);
         await executeCode(kernelId, cell.source, false, msgId);
       } catch (e: unknown) {
         setCells((prev) =>

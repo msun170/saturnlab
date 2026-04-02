@@ -86,9 +86,7 @@ function App() {
       const path = typeof selected === 'string' ? selected : (selected as unknown as { path: string }).path;
       if (!path) return;
 
-      console.log('[Saturn] Opening notebook:', path);
       const nb = await readNotebook(path);
-      console.log('[Saturn] Loaded notebook with', nb.cells.length, 'cells');
       setNotebook(nb);
       setFilePath(path);
       setError(null);

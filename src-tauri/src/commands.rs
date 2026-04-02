@@ -69,8 +69,7 @@ impl ZmqPool {
                         let parent_id = msg.parent_header
                             .get("msg_id").and_then(|v| v.as_str())
                             .unwrap_or("").to_string();
-                        eprintln!("[IOPUB] msg_type={} parent_msg_id={}", msg.header.msg_type, parent_id);
-                        let _ = app1.emit("kernel-output", &KernelOutput {
+                                        let _ = app1.emit("kernel-output", &KernelOutput {
                             kernel_id: kid.clone(),
                             msg_type: msg.header.msg_type.clone(),
                             content: msg.content.clone(),
@@ -161,9 +160,7 @@ pub async fn execute_code(
 
     {
         let mut zmq = client.lock().await;
-        eprintln!("[SHELL] Sending execute_request msg_id={}", msg_id);
         zmq.send_shell(&msg).await?;
-        eprintln!("[SHELL] Sent successfully");
     }
 
     Ok(msg_id)
