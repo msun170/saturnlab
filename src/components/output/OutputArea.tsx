@@ -15,12 +15,12 @@ export default function OutputArea({ outputs }: OutputAreaProps) {
     <div className="output-area">
       {outputs.map((output, i) => (
         <div key={i} className="output-row">
-          {/* Out[n]: prompt for execute_result only, matching Jupyter */}
-          {output.output_type === 'execute_result' && output.execution_count != null && (
-            <div className="output-prompt">
+          {/* Prompt column: Out[n] for execute_result, empty spacer for others */}
+          <div className="output-prompt">
+            {output.output_type === 'execute_result' && output.execution_count != null && (
               <span className="prompt-out">Out[{output.execution_count}]:</span>
-            </div>
-          )}
+            )}
+          </div>
           <div className="output-content">
             <OutputRenderer output={output} />
           </div>

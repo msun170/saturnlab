@@ -517,7 +517,8 @@ body {
 .markdown-rendered img { max-width: 100%; }
 
 /* ─── Output Area ────────────────────────────────────── */
-/* Matches Jupyter: output_area is a horizontal box with optional prompt + output_subarea */
+/* Matches Jupyter: output_area is a horizontal box with prompt + output_subarea.
+   From outputarea.less: div.output_area { .hbox(); } with prompt + output_subarea */
 
 .output-area {
   display: flex;
@@ -530,22 +531,24 @@ body {
   padding: 0;
 }
 
+/* Out[n]: prompt for execute_result. Same width as In[n]: */
 .output-prompt {
   width: var(--prompt-width);
   min-width: var(--prompt-width);
   display: flex;
   align-items: flex-start;
   justify-content: flex-end;
-  padding: var(--code-padding, 0.4em) 4px var(--code-padding, 0.4em) 0;
+  padding: 0.4em 4px 0.4em 0;
   user-select: none;
 }
 
+/* Output content area, aligned with code (prompt spacer always present) */
 .output-content {
   flex: 1;
   min-width: 0;
   overflow-x: auto;
-  padding: var(--code-padding, 0.4em);
-  max-width: calc(100% - var(--prompt-width));
+  padding: 0.4em;
+  border-left: 1px solid var(--border-color);
 }
 
 .text-output {

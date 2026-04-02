@@ -432,16 +432,22 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
   }), [focusedIndex, cells, kernelId, clipboard, deletedCells, handleExecuteCell, runAll, addCell, addCellAbove, deleteCell, moveCell, changeCellType, cutCell, copyCell, pasteCell, undoDelete, clearAllOutputs, toggleLineNumbers]);
 
   // ─── Keyboard shortcuts (command mode) ─────────────────────────
+  // Matches Jupyter keyboardmanager.js including d,d / i,i / 0,0 double-press
+
+  const lastKeyRef = useRef<{ key: string; time: number }>({ key: '', time: 0 });
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      // Only handle if not inside an editor
       const target = e.target as HTMLElement;
       if (target.closest('.cm-editor') || target.tagName === 'TEXTAREA' || target.tagName === 'INPUT') {
         return;
       }
 
-      // Matching Jupyter's exact command mode shortcuts from keyboardmanager.js
+      const now = Date.now();
+      const isDoublePress = (key: string) => {
+        return lastKeyRef.current.key === key && (now - lastKeyRef.current.time) < 500;
+      };
+
       switch (e.key) {
         case 'Enter':
           e.preventDefault();
@@ -451,7 +457,6 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
           e.preventDefault();
           setEditMode(false);
           break;
-        // Cell insertion
         case 'a':
           e.preventDefault();
           addCellAbove(focusedIndex, 'code');
@@ -460,7 +465,6 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
           e.preventDefault();
           addCell(focusedIndex, 'code');
           break;
-        // Navigation
         case 'j':
         case 'ArrowDown':
           e.preventDefault();
@@ -473,7 +477,6 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
           setFocusedIndex((prev) => Math.max(prev - 1, 0));
           setEditMode(false);
           break;
-        // Cell type
         case 'm':
           e.preventDefault();
           changeCellType(focusedIndex, 'markdown');
@@ -482,7 +485,6 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
           e.preventDefault();
           changeCellType(focusedIndex, 'code');
           break;
-        // Clipboard
         case 'x':
           e.preventDefault();
           cutCell(focusedIndex);
@@ -499,27 +501,63 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
           e.preventDefault();
           undoDelete();
           break;
-        // Save
         case 's':
           e.preventDefault();
-          // Handled at App level via Ctrl+S
           break;
-        // Toggle line numbers
         case 'l':
           e.preventDefault();
-          // TODO: toggle line numbers on focused cell
+          toggleLineNumbers();
           break;
-        // Toggle output
         case 'o':
           e.preventDefault();
-          // TODO: toggle cell output collapsed
+          // Toggle output visibility for focused cell
+          setCells((prev) =>
+            prev.map((c, idx) => {
+              if (idx !== focusedIndex || c.cell_type !== 'code') return c;
+              return { ...c, outputHidden: !((c as unknown as { outputHidden?: boolean }).outputHidden) } as CellState;
+            }),
+          );
           break;
+        // Double-press shortcuts (Jupyter d,d / i,i / 0,0)
+        case 'd':
+          e.preventDefault();
+          if (isDoublePress('d')) {
+            deleteCell(focusedIndex);
+            lastKeyRef.current = { key: '', time: 0 };
+          }
+          break;
+        case 'i':
+          e.preventDefault();
+          if (isDoublePress('i')) {
+            if (kernelId) {
+              import('../../lib/ipc').then(({ interruptKernel }) => interruptKernel(kernelId));
+            }
+            lastKeyRef.current = { key: '', time: 0 };
+          }
+          break;
+        case '0':
+          e.preventDefault();
+          if (isDoublePress('0')) {
+            // Restart kernel (handled at app level, just stop here)
+            if (kernelId) {
+              import('../../lib/ipc').then(({ stopKernel }) => stopKernel(kernelId));
+            }
+            lastKeyRef.current = { key: '', time: 0 };
+          }
+          break;
+      }
+
+      // Track for double-press detection
+      if (['d', 'i', '0'].includes(e.key)) {
+        lastKeyRef.current = { key: e.key, time: now };
+      } else {
+        lastKeyRef.current = { key: '', time: 0 };
       }
     }
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [focusedIndex, cells.length, addCell, addCellAbove, changeCellType, cutCell, copyCell, pasteCell, undoDelete, deleteCell]);
+  }, [focusedIndex, cells.length, kernelId, addCell, addCellAbove, changeCellType, cutCell, copyCell, pasteCell, undoDelete, deleteCell, toggleLineNumbers]);
 
   return (
     <div className="notebook">
