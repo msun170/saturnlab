@@ -12,6 +12,7 @@ interface CodeCellProps {
   isRunning: boolean;
   isFocused: boolean;
   isEditing: boolean;
+  showLineNumbers: boolean;
   onChange: (value: string) => void;
   onExecute: () => void;
   onFocus: () => void;
@@ -23,6 +24,7 @@ export default function CodeCell({
   isRunning,
   isFocused,
   isEditing,
+  showLineNumbers,
   onChange,
   onExecute,
   onFocus,
@@ -141,6 +143,7 @@ export default function CodeCell({
     'code-cell',
     isFocused ? 'focused' : '',
     isEditing ? 'editing' : '',
+    !showLineNumbers ? 'hide-line-numbers' : '',
   ].filter(Boolean).join(' ');
 
   return (

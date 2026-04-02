@@ -3,6 +3,7 @@ import { open, save } from '@tauri-apps/plugin-dialog';
 import Notebook from './components/notebook/Notebook';
 import type { NotebookHandle } from './components/notebook/Notebook';
 import MenuBar from './components/toolbar/MenuBar';
+import ShortcutsModal from './components/toolbar/ShortcutsModal';
 import { listKernelspecs, startKernel, stopKernel, readNotebook, writeNotebook } from './lib/ipc';
 import type { KernelSpec } from './types/kernel';
 import type { Notebook as NotebookType } from './types/notebook';
@@ -35,6 +36,7 @@ function App() {
   const [filePath, setFilePath] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [focusedCellType, setFocusedCellType] = useState<string>('code');
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const notebookRef = useRef<NotebookHandle>(null);
 
   // Discover kernelspecs on mount
@@ -187,14 +189,14 @@ function App() {
         onInsertAbove={() => notebookRef.current?.addCellAbove('code')}
         onInsertBelow={() => notebookRef.current?.addCellBelow('code')}
         onRunCell={() => notebookRef.current?.runCell()}
-        onRunAll={() => {/* TODO */}}
+        onRunAll={() => notebookRef.current?.runAll()}
         onChangeCellType={(type) => notebookRef.current?.changeFocusedCellType(type)}
         onInterruptKernel={() => notebookRef.current?.interruptKernel()}
         onRestartKernel={handleRestartKernel}
-        onRestartAndClear={async () => { await handleRestartKernel(); /* TODO: clear outputs */ }}
-        onRestartAndRunAll={async () => { await handleRestartKernel(); /* TODO: run all */ }}
-        onToggleLineNumbers={() => {/* TODO */}}
-        onShowShortcuts={() => {/* TODO: show shortcuts modal */}}
+        onRestartAndClear={async () => { notebookRef.current?.clearAllOutputs(); await handleRestartKernel(); }}
+        onRestartAndRunAll={async () => { await handleRestartKernel(); notebookRef.current?.runAll(); }}
+        onToggleLineNumbers={() => notebookRef.current?.toggleLineNumbers()}
+        onShowShortcuts={() => setShowShortcuts(true)}
         fileName={fileName ?? 'Untitled.ipynb'}
         hasKernel={!!kernelId}
       />
@@ -258,6 +260,8 @@ function App() {
         onNotebookChange={setNotebook}
         onFocusedCellChange={(type) => setFocusedCellType(type)}
       />
+
+      {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
     </div>
   );
 }

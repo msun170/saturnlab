@@ -43,6 +43,7 @@ function cellFromNotebook(cell: Cell): CellState {
 /** Methods exposed to parent via ref for toolbar integration. */
 export interface NotebookHandle {
   runCell: () => void;
+  runAll: () => void;
   addCellBelow: (type: 'code' | 'markdown') => void;
   addCellAbove: (type: 'code' | 'markdown') => void;
   deleteFocusedCell: () => void;
@@ -53,6 +54,8 @@ export interface NotebookHandle {
   copyCell: () => void;
   pasteCell: () => void;
   undoDelete: () => void;
+  clearAllOutputs: () => void;
+  toggleLineNumbers: () => void;
   interruptKernel: () => void;
 }
 
@@ -364,10 +367,45 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
     setFocusedIndex(last.index);
   }, [deletedCells]);
 
+  // ─── Run All ───────────────────────────────────────────────────
+
+  const runAll = useCallback(async () => {
+    if (!kernelId) return;
+    for (let i = 0; i < cells.length; i++) {
+      if (cells[i].cell_type === 'code') {
+        await handleExecuteCell(i);
+        // Small delay so the kernel processes sequentially
+        await new Promise((r) => setTimeout(r, 100));
+      }
+    }
+  }, [kernelId, cells, handleExecuteCell]);
+
+  // ─── Clear All Outputs ─────────────────────────────────────────
+
+  const clearAllOutputs = useCallback(() => {
+    setCells((prev) =>
+      prev.map((c) => ({
+        ...c,
+        outputs: [],
+        execution_count: null,
+        isRunning: false,
+      })),
+    );
+  }, []);
+
+  // ─── Line Numbers Toggle ───────────────────────────────────────
+
+  const [showLineNumbers, setShowLineNumbers] = useState(true);
+
+  const toggleLineNumbers = useCallback(() => {
+    setShowLineNumbers((prev) => !prev);
+  }, []);
+
   // ─── Expose methods to parent via ref ───────────────────────────
 
   useImperativeHandle(ref, () => ({
     runCell: () => handleExecuteCell(focusedIndex),
+    runAll,
     addCellBelow: (type: 'code' | 'markdown') => addCell(focusedIndex, type),
     addCellAbove: (type: 'code' | 'markdown') => addCellAbove(focusedIndex, type),
     deleteFocusedCell: () => deleteCell(focusedIndex),
@@ -378,12 +416,14 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
     copyCell: () => copyCell(focusedIndex),
     pasteCell: () => pasteCell(focusedIndex),
     undoDelete,
+    clearAllOutputs,
+    toggleLineNumbers,
     interruptKernel: () => {
       if (kernelId) {
         import('../../lib/ipc').then(({ interruptKernel }) => interruptKernel(kernelId));
       }
     },
-  }), [focusedIndex, cells, kernelId, clipboard, deletedCells, handleExecuteCell, addCell, addCellAbove, deleteCell, moveCell, changeCellType, cutCell, copyCell, pasteCell, undoDelete]);
+  }), [focusedIndex, cells, kernelId, clipboard, deletedCells, handleExecuteCell, runAll, addCell, addCellAbove, deleteCell, moveCell, changeCellType, cutCell, copyCell, pasteCell, undoDelete, clearAllOutputs, toggleLineNumbers]);
 
   // ─── Keyboard shortcuts (command mode) ─────────────────────────
 
@@ -508,6 +548,7 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
                 isRunning={cell.isRunning}
                 isFocused={index === focusedIndex}
                 isEditing={index === focusedIndex && editMode}
+                showLineNumbers={showLineNumbers}
                 onChange={(src) => handleCellChange(index, src)}
                 onExecute={() => handleExecuteCell(index)}
                 onFocus={() => { setFocusedIndex(index); setEditMode(true); }}
