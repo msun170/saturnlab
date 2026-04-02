@@ -37,7 +37,7 @@
   --cell-border-width: 1px;
   --cell-left-strip-width: 5px;
   --cell-padding: 6px;
-  --prompt-width: 11.5ex;
+  --prompt-width: 15ex;
 }
 
 * {
@@ -318,55 +318,79 @@ body {
   cursor: not-allowed;
 }
 
-/* ─── Code Cell ──────────────────────────────────────── */
-/* Jupyter classic: cell has transparent border, selected cell gets colored left strip */
+/* ─── Cell (shared between code and markdown) ────────── */
+/* From cell.less: div.cell has transparent border, ::before is the left strip */
 
-.code-cell {
+.code-cell,
+.markdown-cell {
+  /* Jupyter: div.cell is a vertical box */
   display: flex;
+  flex-direction: column;
   border: var(--cell-border-width) solid transparent;
   border-radius: 2px;
+  padding: calc(var(--cell-padding) - var(--cell-border-width));
+  margin: 0;
   position: relative;
-  background-color: var(--bg-page);
+  overflow: visible;
 }
 
-/* Left indicator strip (Jupyter's ::before pattern) */
-.code-cell::before {
+/* Left indicator strip: from cell.less ._selected_style mixin */
+.code-cell::before,
+.markdown-cell::before {
   content: '';
   position: absolute;
-  top: 0;
-  left: calc(-1 * var(--cell-left-strip-width));
+  display: block;
+  top: calc(-1 * var(--cell-border-width));
+  left: calc(-1 * var(--cell-border-width));
   width: var(--cell-left-strip-width);
-  height: 100%;
-  background-color: transparent;
-  border-radius: 2px 0 0 2px;
+  height: calc(100% + 2 * var(--cell-border-width));
+  background: transparent;
 }
 
-.code-cell.focused {
+/* Command mode: gray border + blue left strip */
+.code-cell.focused,
+.markdown-cell.focused {
   border-color: var(--border-color-dark);
 }
 
-.code-cell.focused::before {
-  background-color: var(--color-command);
+.code-cell.focused::before,
+.markdown-cell.focused::before {
+  background: var(--color-command);
 }
 
-.code-cell.editing::before {
-  background-color: var(--color-edit);
-}
-
-.code-cell.editing {
+/* Edit mode: green border + green left strip */
+.code-cell.editing,
+.markdown-cell.editing {
   border-color: var(--color-edit);
 }
 
-/* ─── Cell Gutter (In [n]: prompt) ───────────────────── */
+.code-cell.editing::before,
+.markdown-cell.editing::before {
+  background: var(--color-edit);
+}
 
-.cell-gutter {
-  width: var(--prompt-width);
-  min-width: var(--prompt-width);
+/* ─── Cell Input Row (prompt + editor side by side) ──── */
+/* From codecell.less: div.input is a horizontal box */
+
+.cell-input-row {
   display: flex;
-  align-items: flex-start;
-  justify-content: flex-end;
-  padding: 6px 4px 6px 0;
+}
+
+/* ─── Prompt (In [n]: / Out[n]:) ─────────────────────── */
+/* From cell.less: .prompt { min-width: 14ex, text-align: right } */
+/* From codecell.less: overridden to 15ex */
+
+.cell-gutter,
+.output-prompt {
+  min-width: var(--prompt-width);
+  width: var(--prompt-width);
+  padding: 0.4em;
+  margin: 0;
+  font-family: var(--font-code);
+  text-align: right;
+  line-height: 1.21429em;
   user-select: none;
+  cursor: default;
 }
 
 .prompt-in {
@@ -385,21 +409,23 @@ body {
   white-space: nowrap;
 }
 
-/* ─── Cell Content (editor area) ─────────────────────── */
+/* ─── Input Area (editor area with border) ───────────── */
+/* From cell.less: div.input_area { border: 1px solid @light_border_color; background: @cell_background } */
 
 .cell-content {
   flex: 1;
   min-width: 0;
   background-color: var(--bg-cell);
-  border-left: 1px solid var(--border-color);
-  padding: var(--cell-padding);
+  border: 1px solid var(--border-color);
+  border-radius: 2px;
+  line-height: 1.21429em;
 }
 
 .code-editor {
   min-height: 20px;
 }
 
-/* CodeMirror overrides for Jupyter-like appearance */
+/* CodeMirror overrides */
 .code-editor .cm-editor {
   font-family: var(--font-code);
   font-size: var(--font-size-code);
@@ -408,7 +434,7 @@ body {
 }
 
 .code-editor .cm-editor .cm-content {
-  padding: 0;
+  padding: 0.4em;
 }
 
 .code-editor .cm-editor.cm-focused {
@@ -424,101 +450,112 @@ body {
   overflow-x: auto;
 }
 
-/* Toggle line numbers off */
 .hide-line-numbers .cm-gutters {
   display: none !important;
 }
 
 /* ─── Markdown Cell ──────────────────────────────────── */
 
-.markdown-cell {
-  display: flex;
-  border: var(--cell-border-width) solid transparent;
-  border-radius: 2px;
-  position: relative;
+.markdown-cell .cell-gutter {
+  /* Markdown cells in Jupyter don't show a prompt in rendered mode */
 }
 
-.markdown-cell::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: calc(-1 * var(--cell-left-strip-width));
-  width: var(--cell-left-strip-width);
-  height: 100%;
-  background-color: transparent;
-  border-radius: 2px 0 0 2px;
-}
-
-.markdown-cell.focused::before {
-  background-color: var(--color-command);
-}
-
-.markdown-cell.focused {
-  border-color: var(--border-color-dark);
-}
-
-.markdown-cell.editing::before {
-  background-color: var(--color-edit);
-}
-
-.markdown-cell.editing {
-  border-color: var(--color-edit);
-}
+/* ─── Rendered HTML/Markdown ──────────────────────────── */
+/* From renderedhtml.less: exact Jupyter heading sizes, list styles, table styles */
 
 .markdown-rendered {
-  padding: 12px 16px;
+  padding: 0.4em 0.4em;
   font-family: var(--font-ui);
   font-size: 14px;
-  line-height: 1.6;
+  line-height: 1.42857;
   color: var(--text-color);
   cursor: text;
   width: 100%;
 }
 
-.markdown-rendered h1 { font-size: 185.7%; margin: 1.08em 0 0; font-weight: bold; }
-.markdown-rendered h2 { font-size: 157.1%; margin: 1.27em 0 0; font-weight: bold; }
-.markdown-rendered h3 { font-size: 128.6%; margin: 1.55em 0 0; font-weight: bold; }
-.markdown-rendered h4 { font-size: 110%; margin: 2em 0 0; font-weight: bold; }
-.markdown-rendered p { margin: 0.5em 0; }
+.markdown-rendered em { font-style: italic; }
+.markdown-rendered strong { font-weight: bold; }
+.markdown-rendered u { text-decoration: underline; }
+
+/* Heading sizes from renderedhtml.less: 185.7%, 157.1%, 128.6%, 100% */
+.markdown-rendered h1 { font-size: 185.7%; margin: 1.08em 0 0 0; font-weight: bold; line-height: 1.0; }
+.markdown-rendered h2 { font-size: 157.1%; margin: 1.27em 0 0 0; font-weight: bold; line-height: 1.0; }
+.markdown-rendered h3 { font-size: 128.6%; margin: 1.55em 0 0 0; font-weight: bold; line-height: 1.0; }
+.markdown-rendered h4 { font-size: 100%; margin: 2em 0 0 0; font-weight: bold; line-height: 1.0; }
+.markdown-rendered h5 { font-size: 100%; margin: 2em 0 0 0; font-weight: bold; line-height: 1.0; font-style: italic; }
+.markdown-rendered h6 { font-size: 100%; margin: 2em 0 0 0; font-weight: bold; line-height: 1.0; font-style: italic; }
+
+.markdown-rendered h1:first-child { margin-top: 0.538em; }
+.markdown-rendered h2:first-child { margin-top: 0.636em; }
+.markdown-rendered h3:first-child { margin-top: 0.777em; }
+.markdown-rendered h4:first-child { margin-top: 1em; }
+
+.markdown-rendered p { text-align: left; }
+.markdown-rendered * + p { margin-top: 1em; }
+
 .markdown-rendered code {
   background-color: #eff0f1;
-  padding: 1px 5px;
-  border-radius: 2px;
-  font-family: var(--font-code);
+  border: 0;
+  color: var(--text-color);
   font-size: 100%;
 }
+.markdown-rendered p code { padding: 1px 5px; }
 .markdown-rendered pre {
-  background-color: #f7f7f7;
-  border: 1px solid var(--border-color);
-  padding: 8px;
-  border-radius: 2px;
-  overflow-x: auto;
-  margin: 0.5em 0;
-}
-.markdown-rendered pre code {
-  background: none;
-  padding: 0;
-}
-.markdown-rendered ul, .markdown-rendered ol { padding-left: 2em; margin: 0.5em 0; }
-.markdown-rendered blockquote {
-  border-left: 4px solid var(--border-color);
-  padding: 0 1em;
-  color: var(--text-muted);
   margin: 1em 2em;
+  padding: 0;
+  background-color: var(--bg-page);
 }
-.markdown-rendered table { border-collapse: collapse; margin: 0.5em 0; }
-.markdown-rendered th, .markdown-rendered td {
-  border: 1px solid #000;
-  padding: 0.5em;
+.markdown-rendered pre code { background-color: var(--bg-page); }
+.markdown-rendered pre, .markdown-rendered code {
+  border: 0;
+  font-size: 100%;
+}
+
+/* Lists from renderedhtml.less */
+.markdown-rendered ul, .markdown-rendered ol { padding-left: 2em; }
+.markdown-rendered ul { list-style: disc; }
+.markdown-rendered ul ul { list-style: square; margin-top: 0; }
+.markdown-rendered ul ul ul { list-style: circle; }
+.markdown-rendered ol { list-style: decimal; }
+.markdown-rendered ol ol { list-style: upper-alpha; margin-top: 0; }
+.markdown-rendered ol ol ol { list-style: lower-alpha; }
+.markdown-rendered * + ul { margin-top: 1em; }
+.markdown-rendered * + ol { margin-top: 1em; }
+
+.markdown-rendered blockquote { margin: 1em 2em; }
+
+/* Tables from renderedhtml.less */
+.markdown-rendered table {
+  margin-left: auto;
+  margin-right: auto;
+  border: none;
+  border-collapse: collapse;
+  border-spacing: 0;
+  color: black;
+  font-size: 12px;
+  table-layout: fixed;
+}
+.markdown-rendered thead { border-bottom: 1px solid black; vertical-align: bottom; }
+.markdown-rendered tr, .markdown-rendered th, .markdown-rendered td {
   text-align: right;
+  vertical-align: middle;
+  padding: 0.5em;
+  line-height: normal;
+  white-space: normal;
+  max-width: none;
+  border: none;
 }
 .markdown-rendered th { font-weight: bold; }
-.markdown-rendered a { color: #2196f3; }
-.markdown-rendered img { max-width: 100%; }
+.markdown-rendered tbody tr:nth-child(odd) { background: #f5f5f5; }
+.markdown-rendered tbody tr:hover { background: rgba(66, 165, 245, 0.2); }
+.markdown-rendered * + table { margin-top: 1em; }
+
+.markdown-rendered img { display: block; margin-left: auto; margin-right: auto; max-width: 100%; height: auto; }
+.markdown-rendered * + img { margin-top: 1em; }
+.markdown-rendered a { text-decoration: underline; }
 
 /* ─── Output Area ────────────────────────────────────── */
-/* Matches Jupyter: output_area is a horizontal box with prompt + output_subarea.
-   From outputarea.less: div.output_area { .hbox(); } with prompt + output_subarea */
+/* From outputarea.less: div.output_area is an hbox with prompt + output_subarea */
 
 .output-area {
   display: flex;
@@ -526,50 +563,47 @@ body {
   padding: 0;
 }
 
+/* Each output row: prompt + content side by side, matching input layout */
 .output-row {
   display: flex;
   padding: 0;
 }
 
-/* Out[n]: prompt for execute_result. Same width as In[n]: */
-.output-prompt {
-  width: var(--prompt-width);
-  min-width: var(--prompt-width);
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-end;
-  padding: 0.4em 4px 0.4em 0;
-  user-select: none;
-}
-
-/* Output content area, aligned with first character of code */
+/* Output content: from outputarea.less div.output_subarea */
 .output-content {
   flex: 1;
   min-width: 0;
   overflow-x: auto;
-  padding: 0.4em var(--cell-padding);
+  padding: 0.4em;
+  max-width: calc(100% - var(--prompt-width));
 }
 
+/* Text output: from outputarea.less @output_pre_color: black */
 .text-output {
-  color: var(--text-color);
+  color: black;
   font-family: var(--font-code);
-  font-size: 13px;
-  line-height: var(--line-height-code);
+  font-size: var(--font-size-code);
+  line-height: 1.21429em;
   white-space: pre-wrap;
-  word-break: break-all;
+  margin: 0;
+  padding: 1px 0;
+  border: 0;
+  vertical-align: baseline;
+  background-color: transparent;
 }
 
+/* From outputarea.less: div.output_stderr { background: #fdd } */
 .text-output.stderr {
   background-color: var(--bg-stderr);
 }
 
+/* From outputarea.less: .js-error { color: darkred } */
 .error-output {
-  color: var(--color-error);
+  color: darkred;
   font-family: var(--font-code);
-  font-size: 13px;
-  line-height: var(--line-height-code);
+  font-size: var(--font-size-code);
+  line-height: 1.21429em;
   white-space: pre-wrap;
-  word-break: break-all;
   overflow-x: auto;
 }
 

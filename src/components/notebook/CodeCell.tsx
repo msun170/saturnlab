@@ -148,11 +148,13 @@ export default function CodeCell({
 
   return (
     <div className={cellClass} onClick={onFocus}>
-      <div className="cell-gutter">
-        <span className="prompt-in">In&nbsp;[{countDisplay}]:</span>
-      </div>
-      <div className="cell-content">
-        <div ref={editorRef} className="code-editor" />
+      <div className="cell-input-row">
+        <div className="cell-gutter">
+          <span className="prompt-in">In&nbsp;[{countDisplay}]:</span>
+        </div>
+        <div className="cell-content">
+          <div ref={editorRef} className="code-editor" />
+        </div>
       </div>
     </div>
   );
