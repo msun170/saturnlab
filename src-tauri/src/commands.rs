@@ -7,7 +7,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::{Emitter, State};
 use tokio::sync::RwLock;
-use zeromq::SocketRecv;
 
 /// Frontend-friendly kernel output event.
 #[derive(Debug, Clone, Serialize)]
@@ -18,9 +17,9 @@ pub struct KernelOutput {
     pub parent_msg_id: String,
 }
 
-/// Manages persistent ZMQ connections per kernel.
-/// Architecture: one shell sender + one persistent shell reply reader + one iopub listener.
-/// No mutex held during recv. Send is protected by a mutex but released immediately.
+/// One shell sender + one iopub listener per kernel. That's it.
+/// No shell reply reader. The iopub channel gives us everything we need:
+/// stream, display_data, execute_result (with execution_count), error, status.
 pub struct ZmqPool {
     senders: Arc<RwLock<HashMap<String, Arc<tokio::sync::Mutex<ShellClient>>>>>,
 }
@@ -47,7 +46,6 @@ impl ZmqPool {
 
         let conn_info = manager.get_connection_info(kernel_id).await?;
 
-        // Shell client for sending requests
         let shell = ShellClient::connect(conn_info.clone()).await?;
         let client = Arc::new(tokio::sync::Mutex::new(shell));
 
@@ -56,7 +54,7 @@ impl ZmqPool {
             conns.insert(kernel_id.to_string(), client.clone());
         }
 
-        // Spawn persistent IOPUB listener (one per kernel)
+        // ONE iopub listener per kernel. This is the only message receiver.
         let kid = kernel_id.to_string();
         let app1 = app.clone();
         let conn1 = conn_info.clone();
@@ -79,43 +77,6 @@ impl ZmqPool {
                         });
                     }
                     Err(e) => { eprintln!("iopub error: {}", e); break; }
-                }
-            }
-        });
-
-        // Spawn persistent SHELL REPLY reader (one per kernel)
-        // This reads execute_reply messages and emits them as events.
-        // It runs in its own task so it never blocks the sender.
-        let kid2 = kernel_id.to_string();
-        let app2 = app.clone();
-        let conn2 = conn_info.clone();
-        tokio::spawn(async move {
-            // Create a separate shell connection just for reading replies
-            let mut reply_reader = match ShellClient::connect(conn2).await {
-                Ok(r) => r,
-                Err(e) => { eprintln!("shell reply reader connect failed: {}", e); return; }
-            };
-            loop {
-                match tokio::time::timeout(
-                    std::time::Duration::from_secs(600),
-                    reply_reader.shell.recv(),
-                ).await {
-                    Ok(Ok(zmq_msg)) => {
-                        let frames: Vec<Vec<u8>> = zmq_msg.into_vec().iter().map(|f| f.to_vec()).collect();
-                        if let Ok(msg) = JupyterMessage::from_wire_frames(&frames, reply_reader.connection.key.as_bytes()) {
-                            let parent_id = msg.parent_header
-                                .get("msg_id").and_then(|v| v.as_str())
-                                .unwrap_or("").to_string();
-                            let _ = app2.emit("kernel-output", &KernelOutput {
-                                kernel_id: kid2.clone(),
-                                msg_type: msg.header.msg_type.clone(),
-                                content: msg.content.clone(),
-                                parent_msg_id: parent_id,
-                            });
-                        }
-                    }
-                    Ok(Err(e)) => { eprintln!("shell reply error: {}", e); break; }
-                    Err(_) => { /* timeout, keep going */ }
                 }
             }
         });
@@ -173,6 +134,9 @@ pub async fn list_running_kernels(manager: State<'_, KernelManager>) -> Result<V
 }
 
 // ─── Code Execution ──────────────────────────────────────────────────
+// Just send on shell, return msg_id. That's it.
+// The iopub listener handles all output routing.
+// This is exactly what jupyter_client.KernelClient.execute() does.
 
 #[tauri::command]
 pub async fn execute_code(
@@ -189,8 +153,6 @@ pub async fn execute_code(
     let msg = JupyterMessage::execute_request(&session, &code, silent);
     let msg_id = msg.header.msg_id.clone();
 
-    // Acquire lock, send, release. That's it.
-    // The persistent shell reply reader and iopub listener handle everything else.
     {
         let mut zmq = client.lock().await;
         zmq.send_shell(&msg).await?;

@@ -148,12 +148,14 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
               };
               return { ...cell, outputs: [...cell.outputs, newOutput] };
             }
-            case 'execute_reply': {
+            case 'execute_input': {
+              // Kernel broadcasts this on iopub when it starts executing.
+              // Contains execution_count. This is how we get In [n]:
               const execCount = content.execution_count as number | undefined;
               if (execCount != null) {
-                return { ...cell, execution_count: execCount, isRunning: false };
+                return { ...cell, execution_count: execCount };
               }
-              return { ...cell, isRunning: false };
+              return cell;
             }
             case 'status': {
               if (content.execution_state === 'idle') {
@@ -167,8 +169,8 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
         }),
       );
 
-      // Clean up pending execution when done
-      if (msg_type === 'execute_reply' || (msg_type === 'status' && content.execution_state === 'idle')) {
+      // Clean up pending execution when kernel goes idle for this msg
+      if (msg_type === 'status' && content.execution_state === 'idle') {
         pendingRef.current.delete(parent_msg_id);
       }
     });
@@ -378,19 +380,12 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
         const msgId = await executeCode(kernelId, currentCells[i].source);
         pendingRef.current.set(msgId, currentCells[i].id);
 
-        // Wait for this cell's execute_reply or status:idle via a one-shot listener
+        // Wait for status:idle on iopub for this specific msg_id
         await new Promise<void>((resolve) => {
           const timeout = setTimeout(resolve, 60000);
           const unsub = listen<KernelOutput>('kernel-output', (event) => {
             const { msg_type, content, parent_msg_id } = event.payload;
             if (parent_msg_id !== msgId) return;
-            // execute_reply means the kernel finished this cell
-            if (msg_type === 'execute_reply') {
-              clearTimeout(timeout);
-              unsub.then((fn) => fn());
-              resolve();
-            }
-            // Also resolve on status:idle as fallback
             if (msg_type === 'status' && content.execution_state === 'idle') {
               clearTimeout(timeout);
               unsub.then((fn) => fn());
