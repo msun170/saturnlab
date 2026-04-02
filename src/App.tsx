@@ -263,6 +263,9 @@ function App() {
         kernelId={kernelId}
         onNotebookChange={setNotebook}
         onFocusedCellChange={(type) => setFocusedCellType(type)}
+        onInterruptKernel={() => { if (kernelId) { import('./lib/ipc').then(({ interruptKernel }) => interruptKernel(kernelId)); } }}
+        onRestartKernel={handleRestartKernel}
+        onSave={handleSaveFile}
       />
 
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}

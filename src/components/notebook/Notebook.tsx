@@ -22,6 +22,9 @@ interface NotebookProps {
   kernelId: string | null;
   onNotebookChange: (notebook: NotebookType) => void;
   onFocusedCellChange?: (cellType: string, index: number) => void;
+  onInterruptKernel?: () => void;
+  onRestartKernel?: () => void;
+  onSave?: () => void;
 }
 
 let cellIdCounter = 0;
@@ -61,7 +64,7 @@ export interface NotebookHandle {
   interruptKernel: () => void;
 }
 
-const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ notebook, kernelId, onNotebookChange, onFocusedCellChange }, ref) {
+const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ notebook, kernelId, onNotebookChange, onFocusedCellChange, onInterruptKernel, onRestartKernel, onSave }, ref) {
   const [cells, setCells] = useState<CellState[]>(() =>
     notebook.cells.map(cellFromNotebook),
   );
@@ -510,6 +513,7 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
           break;
         case 's':
           e.preventDefault();
+          onSave?.();
           break;
         case 'l':
           e.preventDefault();
@@ -534,14 +538,14 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
           break;
         case 'i':
           e.preventDefault();
-          if (isDouble && kernelId) {
-            import('../../lib/ipc').then(({ interruptKernel }) => interruptKernel(kernelId));
+          if (isDouble) {
+            onInterruptKernel?.();
           }
           break;
         case '0':
           e.preventDefault();
-          if (isDouble && kernelId) {
-            import('../../lib/ipc').then(({ stopKernel }) => stopKernel(kernelId));
+          if (isDouble) {
+            onRestartKernel?.();
           }
           break;
       }
@@ -552,7 +556,7 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [focusedIndex, cells.length, kernelId, addCell, addCellAbove, changeCellType, cutCell, copyCell, pasteCell, undoDelete, deleteCell, toggleLineNumbers]);
+  }, [focusedIndex, cells.length, kernelId, addCell, addCellAbove, changeCellType, cutCell, copyCell, pasteCell, undoDelete, deleteCell, toggleLineNumbers, onInterruptKernel, onRestartKernel, onSave]);
 
   return (
     <div className="notebook">
