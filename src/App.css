@@ -1274,6 +1274,150 @@ body {
   background: rgba(229, 57, 53, 0.1);
 }
 
+/* Variable inspector action buttons */
+.var-inspector-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.var-inspector-btn {
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: 2px;
+  cursor: pointer;
+  font-size: 10px;
+  color: var(--text-muted);
+  padding: 1px 6px;
+  font-family: var(--font-ui);
+}
+
+.var-inspector-btn:hover { background: #e0e0e0; color: var(--text-color); }
+.var-has-warnings { color: #ff9800; border-color: #ff9800; }
+
+/* 2.2: Category breakdown */
+.var-categories {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.var-category-bar {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #eee;
+  margin-bottom: 4px;
+}
+
+.var-category-segment {
+  min-width: 2px;
+  transition: width 0.3s;
+}
+
+.var-category-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.var-category-label {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9px;
+  color: var(--text-muted);
+}
+
+.var-category-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* 2.5: Duplicate warnings */
+.var-duplicates {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border-color);
+  background: #fff8e1;
+}
+
+.var-duplicate-item {
+  display: flex;
+  gap: 6px;
+  padding: 3px 0;
+  font-size: 11px;
+  color: var(--text-color);
+}
+
+.var-duplicate-icon {
+  color: #ff9800;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.var-duplicate-item small {
+  color: var(--text-muted);
+}
+
+/* 2.6: Unused variable hints */
+.var-row-unused {
+  opacity: 0.65;
+}
+
+.var-unused-badge {
+  display: inline-block;
+  font-size: 8px;
+  color: #ff9800;
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  border-radius: 2px;
+  padding: 0 3px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+/* 2.7: Snapshot diff */
+.var-snapshot-diff {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border-color);
+  background: #e3f2fd;
+  font-size: 11px;
+}
+
+.var-snapshot-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.var-delta-up { color: #e53935; }
+.var-delta-down { color: #4caf50; }
+
+.var-snapshot-section {
+  color: var(--text-muted);
+  padding: 1px 0;
+  font-size: 10px;
+}
+
+/* 2.4: Per-cell memory delta badge */
+.cell-memory-delta {
+  padding: 2px 8px 2px calc(var(--prompt-width) + 8px);
+  font-family: var(--font-code);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.cell-memory-delta.delta-up {
+  color: #e53935;
+}
+
+.cell-memory-delta.delta-down {
+  color: #4caf50;
+}
+
 /* ─── Memory Bar (status bar) ────────────────────────── */
 
 .memory-bar {

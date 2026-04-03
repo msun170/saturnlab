@@ -6,6 +6,7 @@ import OutputArea from '../output/OutputArea';
 import type { Cell, Output, Notebook as NotebookType } from '../../types/notebook';
 import type { KernelOutput } from '../../types/kernel';
 import { executeCode } from '../../lib/ipc';
+import { formatBytes } from '../../types/memory';
 
 interface CellState {
   id: string;
@@ -15,6 +16,7 @@ interface CellState {
   execution_count: number | null;
   isRunning: boolean;
   outputHidden: boolean;
+  memoryDelta: number | null; // bytes change after execution
 }
 
 interface NotebookProps {
@@ -44,6 +46,7 @@ function cellFromNotebook(cell: Cell): CellState {
     execution_count: typeof cell.execution_count === 'number' ? cell.execution_count : null,
     isRunning: false,
     outputHidden: false,
+    memoryDelta: null,
   };
 }
 
@@ -211,11 +214,33 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
       );
 
       try {
-        // Generate msg_id FIRST, register it, THEN send.
-        // This prevents the race where iopub messages arrive before we set the pending map.
+        // Get memory before execution for delta calculation
+        let memBefore: number | null = null;
+        try {
+          const { getKernelMemory } = await import('../../lib/ipc');
+          const info = await getKernelMemory(kernelId);
+          memBefore = info.kernel_rss;
+        } catch { /* ignore if memory check fails */ }
+
         const msgId = crypto.randomUUID();
         pendingRef.current.set(msgId, cell.id);
         await executeCode(kernelId, cell.source, false, msgId);
+
+        // Get memory after and compute delta (with small delay for kernel to settle)
+        if (memBefore !== null) {
+          setTimeout(async () => {
+            try {
+              const { getKernelMemory } = await import('../../lib/ipc');
+              const info = await getKernelMemory(kernelId);
+              const delta = info.kernel_rss - memBefore!;
+              setCells((prev) =>
+                prev.map((c) =>
+                  c.id === cell.id ? { ...c, memoryDelta: delta } : c,
+                ),
+              );
+            } catch { /* ignore */ }
+          }, 1000);
+        }
       } catch (e: unknown) {
         setCells((prev) =>
           prev.map((c, i) =>
@@ -261,6 +286,7 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
       execution_count: null,
       isRunning: false,
       outputHidden: false,
+      memoryDelta: null,
     };
     setCells((prev) => {
       const next = [...prev];
@@ -302,6 +328,7 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
       execution_count: null,
       isRunning: false,
       outputHidden: false,
+      memoryDelta: null,
     };
     setCells((prev) => {
       const next = [...prev];
@@ -610,6 +637,11 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
                 onExecute={() => handleExecuteCell(index)}
                 onFocus={() => { setFocusedIndex(index); setEditMode(true); }}
               >
+                {cell.memoryDelta !== null && Math.abs(cell.memoryDelta) > 1024 && (
+                  <div className={`cell-memory-delta ${cell.memoryDelta > 0 ? 'delta-up' : 'delta-down'}`}>
+                    {cell.memoryDelta > 0 ? '+' : ''}{formatBytes(Math.abs(cell.memoryDelta))} RAM
+                  </div>
+                )}
                 {!cell.outputHidden && <OutputArea outputs={cell.outputs} />}
               </CodeCell>
             </>
