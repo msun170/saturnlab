@@ -6,21 +6,30 @@ export default function TabBar() {
 
   const handleClose = (e: React.MouseEvent, tabId: string) => {
     e.stopPropagation();
-    const tab = useAppStore.getState().tabs.find((t) => t.id === tabId);
+    e.preventDefault();
+    const store = useAppStore.getState();
+    const tab = store.tabs.find((t) => t.id === tabId);
     if (!tab) return;
 
-    // Confirm if unsaved
+    // Confirm if unsaved. Use setTimeout to let the UI settle before blocking.
     if (tab.isDirty && !tab.isLauncher) {
-      if (!window.confirm(`"${tab.fileName}" has unsaved changes. Close anyway?`)) {
-        return;
-      }
+      setTimeout(() => {
+        if (!window.confirm(`"${tab.fileName}" has unsaved changes. Close anyway?`)) {
+          return;
+        }
+        if (tab.kernelId) {
+          import('../../lib/ipc').then(({ stopKernel }) => stopKernel(tab.kernelId!));
+        }
+        useAppStore.getState().removeTab(tabId);
+      }, 0);
+      return;
     }
 
     // Stop kernel if running
     if (tab.kernelId) {
       import('../../lib/ipc').then(({ stopKernel }) => stopKernel(tab.kernelId!));
     }
-    useAppStore.getState().removeTab(tabId);
+    store.removeTab(tabId);
   };
 
   const handleMiddleClick = (e: React.MouseEvent, tabId: string) => {

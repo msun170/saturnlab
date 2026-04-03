@@ -6,6 +6,7 @@ import MemoryBar from './MemoryBar';
 export default function StatusBar() {
   const tabs = useAppStore((s) => s.tabs);
   const activeTabId = useAppStore((s) => s.activeTabId);
+  const lastAutosaveTime = useAppStore((s) => s.lastAutosaveTime);
   const tab = tabs.find((t) => t.id === activeTabId);
 
   if (!tab) return null;
@@ -64,9 +65,15 @@ export default function StatusBar() {
       </div>
 
       <div className="status-bar-center">
-        <div className="status-bar-item">
-          {tab.editMode ? 'Edit' : 'Command'}
-        </div>
+        {lastAutosaveTime ? (
+          <div className="status-bar-item status-bar-autosave">
+            Autosaved at {lastAutosaveTime}
+          </div>
+        ) : (
+          <div className="status-bar-item">
+            {tab.editMode ? 'Edit' : 'Command'}
+          </div>
+        )}
       </div>
 
       <div className="status-bar-right">

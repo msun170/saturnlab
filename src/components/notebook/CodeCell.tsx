@@ -1,6 +1,6 @@
 import { useRef, useEffect, type ReactNode } from 'react';
 import { EditorView, keymap, placeholder as cmPlaceholder } from '@codemirror/view';
-import { EditorState } from '@codemirror/state';
+import { EditorState, Prec } from '@codemirror/state';
 import { python } from '@codemirror/lang-python';
 import { defaultKeymap, indentWithTab } from '@codemirror/commands';
 import { autocompletion } from '@codemirror/autocomplete';
@@ -99,10 +99,10 @@ export default function CodeCell({
     const state = EditorState.create({
       doc: source,
       extensions: [
+        Prec.highest(shiftEnterKeymap),
         basicSetup,
         python(),
         jupyterLightTheme,
-        shiftEnterKeymap,
         keymap.of([indentWithTab, ...defaultKeymap]),
         autocompletion(),
         updateListener,

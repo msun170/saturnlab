@@ -1775,6 +1775,11 @@ body {
   margin: 0 2px;
 }
 
+.status-bar-autosave {
+  color: #4caf50;
+  font-weight: 500;
+}
+
 .status-bar-dirty {
   color: var(--color-jupyter-orange);
   font-weight: 600;

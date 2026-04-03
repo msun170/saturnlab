@@ -80,6 +80,7 @@ interface AppStore {
   kernelspecs: KernelSpec[];
   error: string | null;
   showShortcuts: boolean;
+  lastAutosaveTime: string | null;
 
   // Tab actions
   addTab: (overrides?: Partial<TabState>) => string;
@@ -92,6 +93,7 @@ interface AppStore {
   setKernelspecs: (specs: KernelSpec[]) => void;
   setError: (error: string | null) => void;
   setShowShortcuts: (show: boolean) => void;
+  setLastAutosaveTime: (time: string | null) => void;
 }
 
 const initialTab = createDefaultTab({ fileName: 'Launcher', isLauncher: true });
@@ -104,6 +106,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   kernelspecs: [],
   error: null,
   showShortcuts: false,
+  lastAutosaveTime: null,
 
   addTab: (overrides) => {
     const tab = createDefaultTab(overrides);
@@ -161,4 +164,5 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setKernelspecs: (specs) => set({ kernelspecs: specs }),
   setError: (error) => set({ error }),
   setShowShortcuts: (show) => set({ showShortcuts: show }),
+  setLastAutosaveTime: (time) => set({ lastAutosaveTime: time }),
 }));
