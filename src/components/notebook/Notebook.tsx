@@ -72,12 +72,11 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
   const [editMode, setEditMode] = useState(false); // false = command mode, true = edit mode
 
   // Notify parent of focused cell changes (for toolbar cell type dropdown)
+  // Only trigger on focusedIndex change or cell type change, NOT on cells content change
+  const focusedCellType = cells[focusedIndex]?.cell_type ?? 'code';
   useEffect(() => {
-    const cell = cells[focusedIndex];
-    if (cell && onFocusedCellChange) {
-      onFocusedCellChange(cell.cell_type, focusedIndex);
-    }
-  }, [focusedIndex, cells, onFocusedCellChange]);
+    onFocusedCellChange?.(focusedCellType, focusedIndex);
+  }, [focusedIndex, focusedCellType]);
 
   // Track which msg_id belongs to which cell. Using ref instead of state
   // because we don't need React re-renders when this changes.
