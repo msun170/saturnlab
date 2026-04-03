@@ -34,12 +34,20 @@ export default function TabBar() {
         {tabs.map((tab) => (
           <div
             key={tab.id}
-            className={`saturn-tab ${tab.id === activeTabId ? 'saturn-tab-active' : ''}`}
+            className={`saturn-tab ${tab.id === activeTabId ? 'saturn-tab-active' : ''} ${tab.suspensionLayer === 'layerA' || tab.suspensionLayer === 'layerC' ? 'saturn-tab-suspended' : ''}`}
             onClick={() => handleSwitchTab(tab.id)}
             onMouseDown={(e) => handleMiddleClick(e, tab.id)}
-            title={tab.filePath ?? tab.fileName}
+            title={
+              tab.suspensionLayer === 'layerC'
+                ? `${tab.fileName} (kernel stopped)`
+                : tab.suspensionLayer === 'layerA'
+                ? `${tab.fileName} (suspended)`
+                : tab.filePath ?? tab.fileName
+            }
           >
-            <span className="saturn-tab-icon">{tab.isLauncher ? '+' : '\u{25A3}'}</span>
+            <span className="saturn-tab-icon">
+              {tab.isLauncher ? '+' : tab.suspensionLayer === 'layerC' ? '\u23F8' : tab.suspensionLayer === 'layerA' ? '\u263E' : '\u{25A3}'}
+            </span>
             <span className="saturn-tab-label">{tab.fileName}</span>
             {tab.isDirty && <span className="saturn-tab-dirty">&bull;</span>}
             <button

@@ -3,11 +3,13 @@ import { open, save } from '@tauri-apps/plugin-dialog';
 import Notebook from './components/notebook/Notebook';
 import type { NotebookHandle } from './components/notebook/Notebook';
 import Launcher from './components/tabs/Launcher';
+import SuspendedPlaceholder from './components/tabs/SuspendedPlaceholder';
 import MenuBar from './components/toolbar/MenuBar';
 import TabBar from './components/tabs/TabBar';
 import Sidebar from './components/sidebar/Sidebar';
 import StatusBar from './components/statusbar/StatusBar';
 import ShortcutsModal from './components/toolbar/ShortcutsModal';
+import { useSuspension } from './hooks/useSuspension';
 import { useAppStore } from './store';
 import { listKernelspecs, startKernel, stopKernel, readNotebook, writeNotebook } from './lib/ipc';
 import './App.css';
@@ -19,6 +21,10 @@ function App() {
   const error = useAppStore((s) => s.error);
   const showShortcuts = useAppStore((s) => s.showShortcuts);
   const notebookRef = useRef<NotebookHandle>(null);
+
+  // Initialize suspension timer system
+  useSuspension();
+
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const saved = localStorage.getItem('saturn-sidebar-width');
     return saved ? parseInt(saved, 10) : 240;
@@ -334,6 +340,20 @@ function App() {
 
       {tab.isLauncher ? (
         <Launcher />
+      ) : (tab.suspensionLayer === 'layerA' || tab.suspensionLayer === 'layerC') ? (
+        <SuspendedPlaceholder
+          tab={tab}
+          onResume={() => {
+            updateActiveTab({ suspensionLayer: 'active' });
+            if (tab.suspensionLayer === 'layerC') {
+              // Kernel was stopped, offer to restart
+              const specs = useAppStore.getState().kernelspecs;
+              if (specs.length > 0) {
+                handleStartKernel(specs[0].name);
+              }
+            }
+          }}
+        />
       ) : (
         <Notebook
           key={tab.id}
