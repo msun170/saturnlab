@@ -7,8 +7,17 @@ export default function TabBar() {
   const handleClose = (e: React.MouseEvent, tabId: string) => {
     e.stopPropagation();
     const tab = useAppStore.getState().tabs.find((t) => t.id === tabId);
-    // If kernel is running, stop it
-    if (tab?.kernelId) {
+    if (!tab) return;
+
+    // Confirm if unsaved
+    if (tab.isDirty && !tab.isLauncher) {
+      if (!window.confirm(`"${tab.fileName}" has unsaved changes. Close anyway?`)) {
+        return;
+      }
+    }
+
+    // Stop kernel if running
+    if (tab.kernelId) {
       import('../../lib/ipc').then(({ stopKernel }) => stopKernel(tab.kernelId!));
     }
     useAppStore.getState().removeTab(tabId);

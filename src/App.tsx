@@ -265,6 +265,8 @@ function App() {
         onInsertBelow={() => notebookRef.current?.addCellBelow('code')}
         onRunCell={() => notebookRef.current?.runCell()}
         onRunAll={() => notebookRef.current?.runAll()}
+        onRunAllAbove={() => notebookRef.current?.runAllAbove()}
+        onRunAllBelow={() => notebookRef.current?.runAllBelow()}
         onChangeCellType={(type) => notebookRef.current?.changeFocusedCellType(type)}
         onInterruptKernel={() => notebookRef.current?.interruptKernel()}
         onRestartKernel={handleRestartKernel}

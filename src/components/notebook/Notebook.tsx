@@ -55,6 +55,8 @@ function cellFromNotebook(cell: Cell): CellState {
 export interface NotebookHandle {
   runCell: () => void;
   runAll: () => void;
+  runAllAbove: () => void;
+  runAllBelow: () => void;
   addCellBelow: (type: 'code' | 'markdown') => void;
   addCellAbove: (type: 'code' | 'markdown') => void;
   deleteFocusedCell: () => void;
@@ -213,6 +215,7 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
       setCells((prev) =>
         prev.map((c, i) => (i === index ? { ...c, outputs: [], isRunning: true } : c)),
       );
+      onDirty?.(); // Execution changes outputs, mark as dirty
 
       try {
         // Get memory before execution for delta calculation
@@ -449,6 +452,35 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
     }
   }, [kernelId, cells]);
 
+  const runCellRange = useCallback(async (startIdx: number, endIdx: number) => {
+    if (!kernelId) return;
+    const currentCells = [...cells];
+    for (let i = startIdx; i <= endIdx && i < currentCells.length; i++) {
+      if (currentCells[i].cell_type !== 'code') continue;
+      setCells((prev) =>
+        prev.map((c, idx) => (idx === i ? { ...c, outputs: [], isRunning: true } : c)),
+      );
+      try {
+        const msgId = crypto.randomUUID();
+        pendingRef.current.set(msgId, currentCells[i].id);
+        const idlePromise = new Promise<void>((resolve) => {
+          const timeout = setTimeout(resolve, 60000);
+          const unsub = listen<KernelOutput>('kernel-output', (event) => {
+            const { msg_type: mt, content: ct, parent_msg_id: pid } = event.payload;
+            if (pid !== msgId) return;
+            if (mt === 'status' && ct.execution_state === 'idle') {
+              clearTimeout(timeout);
+              unsub.then((fn) => fn());
+              resolve();
+            }
+          });
+        });
+        await executeCode(kernelId, currentCells[i].source, false, msgId);
+        await idlePromise;
+      } catch { /* continue */ }
+    }
+  }, [kernelId, cells]);
+
   // ─── Clear All Outputs ─────────────────────────────────────────
 
   const clearAllOutputs = useCallback(() => {
@@ -475,6 +507,8 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
   useImperativeHandle(ref, () => ({
     runCell: () => handleExecuteCell(focusedIndex),
     runAll,
+    runAllAbove: () => runCellRange(0, focusedIndex - 1),
+    runAllBelow: () => runCellRange(focusedIndex, cells.length - 1),
     addCellBelow: (type: 'code' | 'markdown') => addCell(focusedIndex, type),
     addCellAbove: (type: 'code' | 'markdown') => addCellAbove(focusedIndex, type),
     deleteFocusedCell: () => deleteCell(focusedIndex),
@@ -492,7 +526,7 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
         import('../../lib/ipc').then(({ interruptKernel }) => interruptKernel(kernelId));
       }
     },
-  }), [focusedIndex, cells, kernelId, clipboard, deletedCells, handleExecuteCell, runAll, addCell, addCellAbove, deleteCell, moveCell, changeCellType, cutCell, copyCell, pasteCell, undoDelete, clearAllOutputs, toggleLineNumbers]);
+  }), [focusedIndex, cells, kernelId, clipboard, deletedCells, handleExecuteCell, runAll, runCellRange, addCell, addCellAbove, deleteCell, moveCell, changeCellType, cutCell, copyCell, pasteCell, undoDelete, clearAllOutputs, toggleLineNumbers]);
 
   // ─── Keyboard shortcuts (command mode) ─────────────────────────
   // Matches Jupyter keyboardmanager.js including d,d / i,i / 0,0 double-press

@@ -82,6 +82,8 @@ interface MenuBarProps {
   onInsertBelow: () => void;
   onRunCell: () => void;
   onRunAll: () => void;
+  onRunAllAbove: () => void;
+  onRunAllBelow: () => void;
   onChangeCellType: (type: 'code' | 'markdown') => void;
   onInterruptKernel: () => void;
   onRestartKernel: () => void;
@@ -128,6 +130,8 @@ export default function MenuBar(props: MenuBarProps) {
   const cellItems: MenuItem[] = [
     { label: 'Run Cell', action: props.onRunCell, shortcut: 'Shift+Enter' },
     { label: 'Run All', action: props.onRunAll, disabled: !props.hasKernel },
+    { label: 'Run All Above', action: props.onRunAllAbove, disabled: !props.hasKernel },
+    { label: 'Run All Below', action: props.onRunAllBelow, disabled: !props.hasKernel },
     { divider: true, label: '' },
     { label: 'Cell Type: Code', action: () => props.onChangeCellType('code'), shortcut: 'Y' },
     { label: 'Cell Type: Markdown', action: () => props.onChangeCellType('markdown'), shortcut: 'M' },

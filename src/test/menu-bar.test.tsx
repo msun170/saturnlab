@@ -20,6 +20,8 @@ function createMockProps() {
     onInsertBelow: vi.fn(),
     onRunCell: vi.fn(),
     onRunAll: vi.fn(),
+    onRunAllAbove: vi.fn(),
+    onRunAllBelow: vi.fn(),
     onChangeCellType: vi.fn(),
     onInterruptKernel: vi.fn(),
     onRestartKernel: vi.fn(),
