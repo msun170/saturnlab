@@ -82,11 +82,17 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
   // Track which msg_id belongs to which cell. Using ref instead of state
   // because we don't need React re-renders when this changes.
   const pendingRef = useRef(new Map<string, string>());
+  const kernelIdRef = useRef(kernelId);
+  kernelIdRef.current = kernelId;
 
   // Listen for kernel output events and route to the correct cell
   useEffect(() => {
     const unlisten = listen<KernelOutput>('kernel-output', (event) => {
-      const { msg_type, content, parent_msg_id } = event.payload;
+      const { msg_type, content, parent_msg_id, kernel_id } = event.payload;
+
+      // Only process messages from our kernel (multi-kernel isolation)
+      // Use kernelIdRef to avoid stale closure (effect runs once with [] deps)
+      if (kernelIdRef.current && kernel_id !== kernelIdRef.current) return;
 
       // Find which cell this output belongs to
       const cellId = pendingRef.current.get(parent_msg_id);
