@@ -14,10 +14,17 @@ function App() {
   const kernelspecs = useAppStore((s) => s.kernelspecs);
   const error = useAppStore((s) => s.error);
   const showShortcuts = useAppStore((s) => s.showShortcuts);
-  const { addTab, updateTab, setActiveTab, setKernelspecs, setError, setShowShortcuts } = useAppStore();
+  const notebookRef = useRef<NotebookHandle>(null);
 
   const tab = tabs.find((t) => t.id === activeTabId);
-  const notebookRef = useRef<NotebookHandle>(null);
+
+  // Use getState() for actions to avoid re-render loops
+  const actions = useRef(useAppStore.getState());
+  const addTab = actions.current.addTab;
+  const setActiveTab = actions.current.setActiveTab;
+  const setKernelspecs = actions.current.setKernelspecs;
+  const setError = actions.current.setError;
+  const setShowShortcuts = actions.current.setShowShortcuts;
 
   // Discover kernelspecs on mount
   useEffect(() => {
@@ -29,10 +36,12 @@ function App() {
   // ─── Helpers ───────────────────────────────────────────────────
 
   const updateActiveTab = useCallback(
-    (patch: Parameters<typeof updateTab>[1]) => {
-      if (tab) updateTab(tab.id, patch);
+    (patch: Partial<import('./store/tabStore').TabState>) => {
+      const state = useAppStore.getState();
+      const activeId = state.activeTabId;
+      if (activeId) state.updateTab(activeId, patch);
     },
-    [tab?.id],
+    [],
   );
 
   // ─── Kernel Lifecycle ──────────────────────────────────────────
