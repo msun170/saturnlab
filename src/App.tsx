@@ -3,6 +3,7 @@ import { open, save } from '@tauri-apps/plugin-dialog';
 import Notebook from './components/notebook/Notebook';
 import type { NotebookHandle } from './components/notebook/Notebook';
 import MenuBar from './components/toolbar/MenuBar';
+import TabBar from './components/tabs/TabBar';
 import ShortcutsModal from './components/toolbar/ShortcutsModal';
 import { useAppStore } from './store';
 import { listKernelspecs, startKernel, stopKernel, readNotebook, writeNotebook } from './lib/ipc';
@@ -194,6 +195,12 @@ function App() {
         onSave={handleSaveFile}
         onSaveAs={handleSaveAs}
         onNewNotebook={handleNewNotebook}
+        onCloseTab={() => {
+          if (tab?.kernelId) {
+            import('./lib/ipc').then(({ stopKernel }) => stopKernel(tab.kernelId!));
+          }
+          if (tab) useAppStore.getState().removeTab(tab.id);
+        }}
         onDownloadPy={() => {/* TODO */}}
         onCutCell={() => notebookRef.current?.cutCell()}
         onCopyCell={() => notebookRef.current?.copyCell()}
@@ -218,6 +225,9 @@ function App() {
         fileName={tab.fileName}
         hasKernel={!!tab.kernelId}
       />
+
+      {/* Tab Bar */}
+      <TabBar />
 
       {/* Toolbar */}
       <div className="toolbar">

@@ -69,6 +69,7 @@ interface MenuBarProps {
   onSave: () => void;
   onSaveAs: () => void;
   onNewNotebook: () => void;
+  onCloseTab: () => void;
   onDownloadPy: () => void;
   // Notebook operations (via ref)
   onCutCell: () => void;
@@ -100,6 +101,8 @@ export default function MenuBar(props: MenuBarProps) {
     { label: 'Save As...', action: props.onSaveAs },
     { divider: true, label: '' },
     { label: 'Download as Python (.py)', action: props.onDownloadPy },
+    { divider: true, label: '' },
+    { label: 'Close Tab', action: props.onCloseTab },
   ];
 
   const editItems: MenuItem[] = [
