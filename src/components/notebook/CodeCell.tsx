@@ -2,7 +2,7 @@ import { useRef, useEffect, type ReactNode } from 'react';
 import { EditorView, keymap, placeholder as cmPlaceholder } from '@codemirror/view';
 import { EditorState, Prec } from '@codemirror/state';
 import { python } from '@codemirror/lang-python';
-import { defaultKeymap, indentWithTab } from '@codemirror/commands';
+import { defaultKeymap } from '@codemirror/commands';
 import { autocompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
 import { basicSetup } from 'codemirror';
 
@@ -132,10 +132,14 @@ export default function CodeCell({
           try {
             const result = await inspectCode(kid, code, pos);
             if (result.found && result.data?.['text/plain']) {
-              // Show tooltip as a temporary DOM element
+              // Strip ANSI escape codes from the tooltip text
+              const rawText = result.data['text/plain'];
+              const ansiRegex = new RegExp(String.fromCharCode(27) + '\\[[0-9;]*m', 'g');
+              const cleanText = rawText.replace(ansiRegex, '');
+
               const tooltip = document.createElement('div');
               tooltip.className = 'kernel-tooltip';
-              tooltip.textContent = result.data['text/plain'];
+              tooltip.textContent = cleanText;
               const coords = view.coordsAtPos(pos);
               if (coords) {
                 tooltip.style.position = 'fixed';
@@ -163,7 +167,7 @@ export default function CodeCell({
         basicSetup,
         python(),
         jupyterLightTheme,
-        keymap.of([indentWithTab, ...defaultKeymap]),
+        keymap.of(defaultKeymap),
         autocompletion({ override: [kernelCompletionSource] }),
         updateListener,
         cmPlaceholder(''),

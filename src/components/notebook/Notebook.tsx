@@ -686,8 +686,10 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
           pasteCell(focusedIndex);
           break;
         case 'z':
-          e.preventDefault();
-          undoDelete();
+          if (!e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            undoDelete();
+          }
           break;
         case 's':
           e.preventDefault();
@@ -765,9 +767,6 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
         <div
           key={cell.id}
           className={`cell-container ${index === highlightCellIndex ? 'cell-highlighted' : ''} ${dragOverIndex === index ? 'cell-drag-over' : ''}`}
-          draggable
-          onDragStart={(e) => { e.dataTransfer.setData('text/plain', String(index)); setDragIndex(index); }}
-          onDragEnd={() => { setDragIndex(null); setDragOverIndex(null); }}
           onDragOver={(e) => { e.preventDefault(); setDragOverIndex(index); }}
           onDrop={(e) => {
             e.preventDefault();
@@ -786,6 +785,20 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
             setDragOverIndex(null);
           }}
         >
+          {/* Drag handle */}
+          <div
+            className="cell-drag-handle"
+            draggable
+            onDragStart={(e) => {
+              e.dataTransfer.setData('text/plain', String(index));
+              e.dataTransfer.effectAllowed = 'move';
+              setDragIndex(index);
+            }}
+            onDragEnd={() => { setDragIndex(null); setDragOverIndex(null); }}
+            title="Drag to reorder"
+          >
+            &#x2630;
+          </div>
           {/* Highlight dismiss button */}
           {index === highlightCellIndex && (
             <button className="cell-highlight-dismiss" onClick={clearHighlight} title="Dismiss">x</button>

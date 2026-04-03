@@ -462,18 +462,37 @@ body {
   background: rgba(229, 57, 53, 0.3);
 }
 
-/* 4.9: Drag-and-drop indicator */
+/* 4.9: Drag-and-drop */
+.cell-drag-handle {
+  position: absolute;
+  left: -4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  color: #ccc;
+  font-size: 10px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  user-select: none;
+  z-index: 5;
+}
+
+.cell-container:hover .cell-drag-handle {
+  opacity: 1;
+}
+
+.cell-drag-handle:active {
+  cursor: grabbing;
+  color: var(--text-color);
+}
+
 .cell-drag-over {
   border-top: 2px solid var(--color-command);
-}
-
-.cell-container[draggable="true"] {
-  cursor: grab;
-}
-
-.cell-container[draggable="true"]:active {
-  cursor: grabbing;
-  opacity: 0.6;
 }
 
 /* ─── Cell Actions (hover toolbar) ───────────────────── */
@@ -1474,17 +1493,17 @@ body {
 
 .collapse-toggle {
   position: absolute;
-  left: 4px;
-  top: 8px;
+  left: 8px;
+  top: 10px;
   z-index: 5;
-  background: none;
-  border: none;
+  background: var(--bg-cell);
+  border: 1px solid var(--border-color);
   cursor: pointer;
-  font-size: 10px;
+  font-size: 9px;
   color: var(--text-muted);
   padding: 2px 4px;
   border-radius: 2px;
-  opacity: 0.5;
+  opacity: 0.6;
   transition: opacity 0.15s;
 }
 
