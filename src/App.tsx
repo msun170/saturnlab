@@ -39,11 +39,24 @@ function App() {
   const setError = actions.current.setError;
   const setShowShortcuts = actions.current.setShowShortcuts;
 
-  // Discover kernelspecs on mount
+  // Discover kernelspecs on mount (retry once if empty, IPC might not be ready)
   useEffect(() => {
-    listKernelspecs()
-      .then((specs) => setKernelspecs(specs))
-      .catch((e: unknown) => setError(`Failed to discover kernels: ${e}`));
+    const fetchSpecs = () => {
+      listKernelspecs()
+        .then((specs) => {
+          setKernelspecs(specs);
+          if (specs.length === 0) {
+            // Retry once after a short delay
+            setTimeout(() => {
+              listKernelspecs().then((retry) => {
+                if (retry.length > 0) setKernelspecs(retry);
+              }).catch(() => {});
+            }, 2000);
+          }
+        })
+        .catch((e: unknown) => setError(`Failed to discover kernels: ${e}`));
+    };
+    fetchSpecs();
   }, []);
 
   // ─── Helpers ───────────────────────────────────────────────────
