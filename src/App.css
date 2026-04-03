@@ -1171,6 +1171,73 @@ body {
 .toc-h3 { font-weight: 500; }
 .toc-h4, .toc-h5, .toc-h6 { font-weight: 400; color: var(--text-muted); }
 
+/* ─── Status Bar (from JupyterLab statusbar/style/base.css) ── */
+
+.status-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-toolbar);
+  min-height: 24px;
+  padding: 0 10px;
+  border-top: 1px solid var(--border-color);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.status-bar-left,
+.status-bar-center,
+.status-bar-right {
+  display: flex;
+  align-items: center;
+}
+
+.status-bar-right {
+  flex-direction: row-reverse;
+}
+
+.status-bar-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-height: 24px;
+  margin: 0 2px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  padding: 0 6px;
+  line-height: 24px;
+}
+
+.status-bar-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-bar-dot.idle { background-color: #4caf50; }
+.status-bar-dot.busy { background-color: #ff9800; }
+.status-bar-dot.starting { background-color: #2196f3; }
+.status-bar-dot.disconnected { background-color: #999; }
+
+.status-bar-separator {
+  color: var(--border-color);
+  margin: 0 2px;
+}
+
+.status-bar-dirty {
+  color: var(--color-jupyter-orange);
+  font-weight: 600;
+}
+
+.status-bar-filename {
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ─── Modal ──────────────────────────────────────────── */
 
 .modal-overlay {

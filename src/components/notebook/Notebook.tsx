@@ -23,6 +23,7 @@ interface NotebookProps {
   onNotebookChange: (notebook: NotebookType) => void;
   onDirty?: () => void;
   onFocusedCellChange?: (cellType: string, index: number) => void;
+  onEditModeChange?: (editMode: boolean) => void;
   onInterruptKernel?: () => void;
   onRestartKernel?: () => void;
   onSave?: () => void;
@@ -65,12 +66,18 @@ export interface NotebookHandle {
   interruptKernel: () => void;
 }
 
-const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ notebook, kernelId, onNotebookChange, onDirty, onFocusedCellChange, onInterruptKernel, onRestartKernel, onSave }, ref) {
+const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ notebook, kernelId, onNotebookChange, onDirty, onFocusedCellChange, onEditModeChange, onInterruptKernel, onRestartKernel, onSave }, ref) {
   const [cells, setCells] = useState<CellState[]>(() =>
     notebook.cells.map(cellFromNotebook),
   );
   const [focusedIndex, setFocusedIndex] = useState(0);
-  const [editMode, setEditMode] = useState(false); // false = command mode, true = edit mode
+  const [editMode, setEditModeInternal] = useState(false);
+
+  // Wrap setEditMode to notify parent
+  const setEditMode = useCallback((mode: boolean) => {
+    setEditModeInternal(mode);
+    onEditModeChange?.(mode);
+  }, [onEditModeChange]);
 
   // Notify parent of focused cell changes (for toolbar cell type dropdown)
   // Only trigger on focusedIndex change or cell type change, NOT on cells content change

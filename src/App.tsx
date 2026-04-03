@@ -5,6 +5,7 @@ import type { NotebookHandle } from './components/notebook/Notebook';
 import MenuBar from './components/toolbar/MenuBar';
 import TabBar from './components/tabs/TabBar';
 import Sidebar from './components/sidebar/Sidebar';
+import StatusBar from './components/statusbar/StatusBar';
 import ShortcutsModal from './components/toolbar/ShortcutsModal';
 import { useAppStore } from './store';
 import { listKernelspecs, startKernel, stopKernel, readNotebook, writeNotebook } from './lib/ipc';
@@ -302,6 +303,7 @@ function App() {
         onNotebookChange={(nb) => updateActiveTab({ notebook: nb })}
         onDirty={() => updateActiveTab({ isDirty: true })}
         onFocusedCellChange={(type) => updateActiveTab({ focusedCellType: type })}
+        onEditModeChange={(mode) => updateActiveTab({ editMode: mode })}
         onInterruptKernel={() => {
           if (tab.kernelId) {
             import('./lib/ipc').then(({ interruptKernel }) => interruptKernel(tab.kernelId!));
@@ -312,6 +314,8 @@ function App() {
       />
         </div>{/* end .main-content */}
       </div>{/* end .app-workspace */}
+
+      <StatusBar />
 
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
     </div>
