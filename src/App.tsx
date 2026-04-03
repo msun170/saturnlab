@@ -9,22 +9,28 @@ import { listKernelspecs, startKernel, stopKernel, readNotebook, writeNotebook }
 import './App.css';
 
 function App() {
-  const store = useAppStore();
-  const tab = store.getActiveTab();
+  const tabs = useAppStore((s) => s.tabs);
+  const activeTabId = useAppStore((s) => s.activeTabId);
+  const kernelspecs = useAppStore((s) => s.kernelspecs);
+  const error = useAppStore((s) => s.error);
+  const showShortcuts = useAppStore((s) => s.showShortcuts);
+  const { addTab, updateTab, setActiveTab, setKernelspecs, setError, setShowShortcuts } = useAppStore();
+
+  const tab = tabs.find((t) => t.id === activeTabId);
   const notebookRef = useRef<NotebookHandle>(null);
 
   // Discover kernelspecs on mount
   useEffect(() => {
     listKernelspecs()
-      .then((specs) => store.setKernelspecs(specs))
-      .catch((e: unknown) => store.setError(`Failed to discover kernels: ${e}`));
+      .then((specs) => setKernelspecs(specs))
+      .catch((e: unknown) => setError(`Failed to discover kernels: ${e}`));
   }, []);
 
   // ─── Helpers ───────────────────────────────────────────────────
 
   const updateActiveTab = useCallback(
-    (patch: Parameters<typeof store.updateTab>[1]) => {
-      if (tab) store.updateTab(tab.id, patch);
+    (patch: Parameters<typeof updateTab>[1]) => {
+      if (tab) updateTab(tab.id, patch);
     },
     [tab?.id],
   );
@@ -33,13 +39,13 @@ function App() {
 
   const handleStartKernel = useCallback(async (specName: string) => {
     if (!tab) return;
-    store.setError(null);
+    setError(null);
     updateActiveTab({ kernelStatus: 'starting' });
     try {
       const id = await startKernel(specName);
       updateActiveTab({ kernelId: id, kernelStatus: 'idle' });
     } catch (e: unknown) {
-      store.setError(`Failed to start kernel: ${e}`);
+      setError(`Failed to start kernel: ${e}`);
       updateActiveTab({ kernelStatus: 'disconnected' });
     }
   }, [tab?.id, updateActiveTab]);
@@ -50,7 +56,7 @@ function App() {
       await stopKernel(tab.kernelId);
       updateActiveTab({ kernelId: null, kernelStatus: 'disconnected' });
     } catch (e: unknown) {
-      store.setError(`Failed to stop kernel: ${e}`);
+      setError(`Failed to stop kernel: ${e}`);
     }
   }, [tab?.id, tab?.kernelId, updateActiveTab]);
 
@@ -69,12 +75,12 @@ function App() {
 
       const nb = await readNotebook(path);
       const fileName = path.split(/[\\/]/).pop() ?? 'Untitled.ipynb';
-      store.setError(null);
+      setError(null);
 
       // Check if this file is already open in a tab
-      const existing = store.tabs.find((t) => t.filePath === path);
+      const existing = tabs.find((t) => t.filePath === path);
       if (existing) {
-        store.setActiveTab(existing.id);
+        setActiveTab(existing.id);
         return;
       }
 
@@ -83,11 +89,11 @@ function App() {
         updateActiveTab({ notebook: nb, filePath: path, fileName });
       } else {
         // Open in a new tab
-        store.addTab({ notebook: nb, filePath: path, fileName });
+        addTab({ notebook: nb, filePath: path, fileName });
       }
 
       // Auto-start kernel
-      const specs = store.kernelspecs;
+      const specs = kernelspecs;
       if (nb.metadata.kernelspec && specs.length > 0) {
         const specName = nb.metadata.kernelspec.name;
         if (specs.find((s) => s.name === specName)) {
@@ -96,9 +102,9 @@ function App() {
         }
       }
     } catch (e: unknown) {
-      store.setError(`Failed to open file: ${e}`);
+      setError(`Failed to open file: ${e}`);
     }
-  }, [tab?.id, tab?.filePath, tab?.isDirty, tab?.kernelId, store.kernelspecs, handleStartKernel, updateActiveTab]);
+  }, [tab?.id, tab?.filePath, tab?.isDirty, tab?.kernelId, kernelspecs, handleStartKernel, updateActiveTab]);
 
   const handleSaveFile = useCallback(async () => {
     if (!tab) return;
@@ -117,7 +123,7 @@ function App() {
       await writeNotebook(path, tab.notebook);
       updateActiveTab({ isDirty: false });
     } catch (e: unknown) {
-      store.setError(`Failed to save file: ${e}`);
+      setError(`Failed to save file: ${e}`);
     }
   }, [tab?.id, tab?.filePath, tab?.notebook, updateActiveTab]);
 
@@ -134,22 +140,22 @@ function App() {
       await writeNotebook(selected, tab.notebook);
       updateActiveTab({ isDirty: false });
     } catch (e: unknown) {
-      store.setError(`Failed to save: ${e}`);
+      setError(`Failed to save: ${e}`);
     }
   }, [tab?.id, tab?.notebook, updateActiveTab]);
 
   const handleNewNotebook = useCallback(() => {
-    store.addTab();
+    addTab();
   }, []);
 
   const handleRestartKernel = useCallback(async () => {
     if (!tab?.kernelId) return;
-    const specName = store.kernelspecs.length > 0 ? store.kernelspecs[0].name : null;
+    const specName = kernelspecs.length > 0 ? kernelspecs[0].name : null;
     await handleStopKernel();
     if (specName) {
       await handleStartKernel(specName);
     }
-  }, [tab?.kernelId, store.kernelspecs, handleStopKernel, handleStartKernel]);
+  }, [tab?.kernelId, kernelspecs, handleStopKernel, handleStartKernel]);
 
   // ─── Keyboard Shortcuts ────────────────────────────────────────
 
@@ -199,7 +205,7 @@ function App() {
           notebookRef.current?.runAll();
         }}
         onToggleLineNumbers={() => notebookRef.current?.toggleLineNumbers()}
-        onShowShortcuts={() => store.setShowShortcuts(true)}
+        onShowShortcuts={() => setShowShortcuts(true)}
         fileName={tab.fileName}
         hasKernel={!!tab.kernelId}
       />
@@ -234,11 +240,11 @@ function App() {
         </div>
         <div className="toolbar-spacer" />
         {!tab.kernelId ? (
-          store.kernelspecs.length > 0 && (
+          kernelspecs.length > 0 && (
             <div className="toolbar-group">
               <select className="kernel-select" defaultValue="" onChange={(e) => { if (e.target.value) handleStartKernel(e.target.value); }}>
                 <option value="" disabled>Start Kernel...</option>
-                {store.kernelspecs.map((spec) => (
+                {kernelspecs.map((spec) => (
                   <option key={spec.name} value={spec.name}>{spec.display_name}</option>
                 ))}
               </select>
@@ -252,7 +258,7 @@ function App() {
         )}
       </div>
 
-      {store.error && <div className="error-banner">{store.error}</div>}
+      {error && <div className="error-banner">{error}</div>}
 
       <Notebook
         key={tab.id}
@@ -270,7 +276,7 @@ function App() {
         onSave={handleSaveFile}
       />
 
-      {store.showShortcuts && <ShortcutsModal onClose={() => store.setShowShortcuts(false)} />}
+      {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
     </div>
   );
 }
