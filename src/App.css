@@ -1453,6 +1453,33 @@ body {
   color: #4caf50;
 }
 
+/* 4.7: Collapsible headings */
+.markdown-cell-wrapper {
+  position: relative;
+}
+
+.collapse-toggle {
+  position: absolute;
+  left: 4px;
+  top: 8px;
+  z-index: 5;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 10px;
+  color: var(--text-muted);
+  padding: 2px 4px;
+  border-radius: 2px;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+
+.collapse-toggle:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text-color);
+}
+
 /* 3.3: Output pagination */
 .output-show-more {
   display: block;

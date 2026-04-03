@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import CodeCell from './CodeCell';
 import MarkdownCell from './MarkdownCell';
@@ -17,7 +17,8 @@ interface CellState {
   execution_count: number | null;
   isRunning: boolean;
   outputHidden: boolean;
-  memoryDelta: number | null; // bytes change after execution
+  memoryDelta: number | null;
+  collapsed: boolean; // for collapsible headings // bytes change after execution
 }
 
 interface NotebookProps {
@@ -48,6 +49,7 @@ function cellFromNotebook(cell: Cell): CellState {
     isRunning: false,
     outputHidden: false,
     memoryDelta: null,
+    collapsed: false,
   };
 }
 
@@ -305,6 +307,7 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
       isRunning: false,
       outputHidden: false,
       memoryDelta: null,
+      collapsed: false,
     };
     setCells((prev) => {
       const next = [...prev];
@@ -347,6 +350,7 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
       isRunning: false,
       outputHidden: false,
       memoryDelta: null,
+      collapsed: false,
     };
     setCells((prev) => {
       const next = [...prev];
@@ -355,6 +359,43 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
     });
     // Focus stays at same index (which is now the new cell)
   }, []);
+
+  // ─── Collapsible Headings ─────────────────────────────────────
+
+  const getHeadingLevel = (source: string): number => {
+    const match = source.match(/^(#{1,6})\s/);
+    return match ? match[1].length : 0;
+  };
+
+  const toggleCollapse = useCallback((index: number) => {
+    setCells((prev) => {
+      const cell = prev[index];
+      const newCollapsed = !cell.collapsed;
+      return prev.map((c, i) => (i === index ? { ...c, collapsed: newCollapsed } : c));
+    });
+  }, []);
+
+  // Determine which cells are hidden due to a collapsed heading above them
+  const hiddenCells = useMemo(() => {
+    const hidden = new Set<number>();
+    for (let i = 0; i < cells.length; i++) {
+      const cell = cells[i];
+      if (cell.cell_type === 'markdown' && cell.collapsed) {
+        const level = getHeadingLevel(cell.source);
+        if (level === 0) continue;
+        // Hide all cells below until we hit a heading of same or higher level
+        for (let j = i + 1; j < cells.length; j++) {
+          const below = cells[j];
+          if (below.cell_type === 'markdown') {
+            const belowLevel = getHeadingLevel(below.source);
+            if (belowLevel > 0 && belowLevel <= level) break;
+          }
+          hidden.add(j);
+        }
+      }
+    }
+    return hidden;
+  }, [cells]);
 
   const changeCellType = useCallback((index: number, newType: 'code' | 'markdown') => {
     setCells((prev) =>
@@ -662,7 +703,10 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
 
   return (
     <div className="notebook">
-      {cells.map((cell, index) => (
+      {cells.map((cell, index) => {
+        if (hiddenCells.has(index)) return null; // Hidden by collapsed heading
+        const headingLevel = cell.cell_type === 'markdown' ? getHeadingLevel(cell.source) : 0;
+        return (
         <div key={cell.id} className={`cell-container ${index === highlightCellIndex ? 'cell-highlighted' : ''}`}>
           {/* Highlight dismiss button */}
           {index === highlightCellIndex && (
@@ -711,13 +755,24 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
               </CodeCell>
             </>
           ) : (
-            <MarkdownCell
-              source={cell.source}
-              isFocused={index === focusedIndex}
-              onChange={(src) => handleCellChange(index, src)}
-              onFocus={() => setFocusedIndex(index)}
-              onExecute={() => handleExecuteCell(index)}
-            />
+            <div className="markdown-cell-wrapper">
+              {headingLevel > 0 && (
+                <button
+                  className="collapse-toggle"
+                  onClick={(e) => { e.stopPropagation(); toggleCollapse(index); }}
+                  title={cell.collapsed ? 'Expand section' : 'Collapse section'}
+                >
+                  {cell.collapsed ? '\u25B6' : '\u25BC'}
+                </button>
+              )}
+              <MarkdownCell
+                source={cell.source}
+                isFocused={index === focusedIndex}
+                onChange={(src) => handleCellChange(index, src)}
+                onFocus={() => setFocusedIndex(index)}
+                onExecute={() => handleExecuteCell(index)}
+              />
+            </div>
           )}
 
           {/* Add cell button between cells */}
@@ -730,7 +785,8 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
             </button>
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 });
