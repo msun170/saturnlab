@@ -1,35 +1,34 @@
 import { useAppStore } from '../../store';
+import { confirm } from '@tauri-apps/plugin-dialog';
 
 export default function TabBar() {
   const tabs = useAppStore((s) => s.tabs);
   const activeTabId = useAppStore((s) => s.activeTabId);
 
-  const handleClose = (e: React.MouseEvent, tabId: string) => {
-    e.stopPropagation();
-    e.preventDefault();
-    const store = useAppStore.getState();
-    const tab = store.tabs.find((t) => t.id === tabId);
-    if (!tab) return;
-
-    // Confirm if unsaved. Use setTimeout to let the UI settle before blocking.
-    if (tab.isDirty && !tab.isLauncher) {
-      setTimeout(() => {
-        if (!window.confirm(`"${tab.fileName}" has unsaved changes. Close anyway?`)) {
-          return;
-        }
-        if (tab.kernelId) {
-          import('../../lib/ipc').then(({ stopKernel }) => stopKernel(tab.kernelId!));
-        }
-        useAppStore.getState().removeTab(tabId);
-      }, 0);
-      return;
-    }
-
-    // Stop kernel if running
-    if (tab.kernelId) {
+  const doClose = (tabId: string) => {
+    const tab = useAppStore.getState().tabs.find((t) => t.id === tabId);
+    if (tab?.kernelId) {
       import('../../lib/ipc').then(({ stopKernel }) => stopKernel(tab.kernelId!));
     }
-    store.removeTab(tabId);
+    useAppStore.getState().removeTab(tabId);
+  };
+
+  const handleClose = async (e: React.MouseEvent, tabId: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const tab = useAppStore.getState().tabs.find((t) => t.id === tabId);
+    if (!tab) return;
+
+    // Use Tauri native confirm dialog (async, shows before any UI changes)
+    if (tab.isDirty && !tab.isLauncher) {
+      const confirmed = await confirm(
+        `"${tab.fileName}" has unsaved changes. Close anyway?`,
+        { title: 'Unsaved Changes', kind: 'warning' },
+      );
+      if (!confirmed) return;
+    }
+
+    doClose(tabId);
   };
 
   const handleMiddleClick = (e: React.MouseEvent, tabId: string) => {
