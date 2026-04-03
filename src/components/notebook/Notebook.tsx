@@ -21,6 +21,7 @@ interface NotebookProps {
   notebook: NotebookType;
   kernelId: string | null;
   onNotebookChange: (notebook: NotebookType) => void;
+  onDirty?: () => void;
   onFocusedCellChange?: (cellType: string, index: number) => void;
   onInterruptKernel?: () => void;
   onRestartKernel?: () => void;
@@ -64,7 +65,7 @@ export interface NotebookHandle {
   interruptKernel: () => void;
 }
 
-const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ notebook, kernelId, onNotebookChange, onFocusedCellChange, onInterruptKernel, onRestartKernel, onSave }, ref) {
+const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ notebook, kernelId, onNotebookChange, onDirty, onFocusedCellChange, onInterruptKernel, onRestartKernel, onSave }, ref) {
   const [cells, setCells] = useState<CellState[]>(() =>
     notebook.cells.map(cellFromNotebook),
   );
@@ -233,7 +234,8 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
     setCells((prev) =>
       prev.map((c, i) => (i === index ? { ...c, source } : c)),
     );
-  }, []);
+    onDirty?.();
+  }, [onDirty]);
 
   // ─── Cell Operations ───────────────────────────────────────────
 

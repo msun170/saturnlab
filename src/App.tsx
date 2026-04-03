@@ -284,7 +284,8 @@ function App() {
         ref={notebookRef}
         notebook={tab.notebook}
         kernelId={tab.kernelId}
-        onNotebookChange={(nb) => updateActiveTab({ notebook: nb, isDirty: true })}
+        onNotebookChange={(nb) => updateActiveTab({ notebook: nb })}
+        onDirty={() => updateActiveTab({ isDirty: true })}
         onFocusedCellChange={(type) => updateActiveTab({ focusedCellType: type })}
         onInterruptKernel={() => {
           if (tab.kernelId) {
