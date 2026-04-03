@@ -226,19 +226,25 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
         pendingRef.current.set(msgId, cell.id);
         await executeCode(kernelId, cell.source, false, msgId);
 
-        // Wait for kernel to go idle for this cell, THEN measure memory
+        // Wait for kernel to go idle, then measure memory delta
         if (memBefore !== null) {
           const cellId = cell.id;
+          const kId = kernelId;
           const unlisten = listen<KernelOutput>('kernel-output', async (event) => {
             const { msg_type, content, parent_msg_id } = event.payload;
             if (parent_msg_id !== msgId) return;
             if (msg_type === 'status' && content.execution_state === 'idle') {
               unlisten.then((fn) => fn());
-              // Small delay for OS to update RSS after GC
-              await new Promise((r) => setTimeout(r, 500));
               try {
+                // Force GC and trim inside the kernel so OS reclaims freed pages
+                const gcMsgId = crypto.randomUUID();
+                await executeCode(kId, 'import gc as _gc; _gc.collect()', true, gcMsgId);
+
+                // Wait for kernel to finish GC and OS to update RSS
+                await new Promise((r) => setTimeout(r, 2000));
+
                 const { getKernelMemory } = await import('../../lib/ipc');
-                const info = await getKernelMemory(kernelId);
+                const info = await getKernelMemory(kId);
                 const delta = info.kernel_rss - memBefore!;
                 setCells((prev) =>
                   prev.map((c) =>
