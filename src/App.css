@@ -462,6 +462,20 @@ body {
   background: rgba(229, 57, 53, 0.3);
 }
 
+/* 4.9: Drag-and-drop indicator */
+.cell-drag-over {
+  border-top: 2px solid var(--color-command);
+}
+
+.cell-container[draggable="true"] {
+  cursor: grab;
+}
+
+.cell-container[draggable="true"]:active {
+  cursor: grabbing;
+  opacity: 0.6;
+}
+
 /* ─── Cell Actions (hover toolbar) ───────────────────── */
 
 .cell-actions {

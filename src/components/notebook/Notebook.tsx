@@ -540,6 +540,8 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
 
   const [showLineNumbers, setShowLineNumbers] = useState(true);
   const [showSearch, setShowSearch] = useState(false);
+  const [_dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   const handleSearch = useCallback((query: string, matchCase: boolean) => {
     const results: { cellIndex: number; lineNumber: number; text: string }[] = [];
@@ -760,7 +762,30 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
         if (hiddenCells.has(index)) return null; // Hidden by collapsed heading
         const headingLevel = cell.cell_type === 'markdown' ? getHeadingLevel(cell.source) : 0;
         return (
-        <div key={cell.id} className={`cell-container ${index === highlightCellIndex ? 'cell-highlighted' : ''}`}>
+        <div
+          key={cell.id}
+          className={`cell-container ${index === highlightCellIndex ? 'cell-highlighted' : ''} ${dragOverIndex === index ? 'cell-drag-over' : ''}`}
+          draggable
+          onDragStart={(e) => { e.dataTransfer.setData('text/plain', String(index)); setDragIndex(index); }}
+          onDragEnd={() => { setDragIndex(null); setDragOverIndex(null); }}
+          onDragOver={(e) => { e.preventDefault(); setDragOverIndex(index); }}
+          onDrop={(e) => {
+            e.preventDefault();
+            const fromIdx = parseInt(e.dataTransfer.getData('text/plain'), 10);
+            if (!isNaN(fromIdx) && fromIdx !== index) {
+              setCells((prev) => {
+                const next = [...prev];
+                const [moved] = next.splice(fromIdx, 1);
+                next.splice(index, 0, moved);
+                return next;
+              });
+              setFocusedIndex(index);
+              onDirty?.();
+            }
+            setDragIndex(null);
+            setDragOverIndex(null);
+          }}
+        >
           {/* Highlight dismiss button */}
           {index === highlightCellIndex && (
             <button className="cell-highlight-dismiss" onClick={clearHighlight} title="Dismiss">x</button>
