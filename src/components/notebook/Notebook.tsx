@@ -226,20 +226,28 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
         pendingRef.current.set(msgId, cell.id);
         await executeCode(kernelId, cell.source, false, msgId);
 
-        // Get memory after and compute delta (with small delay for kernel to settle)
+        // Wait for kernel to go idle for this cell, THEN measure memory
         if (memBefore !== null) {
-          setTimeout(async () => {
-            try {
-              const { getKernelMemory } = await import('../../lib/ipc');
-              const info = await getKernelMemory(kernelId);
-              const delta = info.kernel_rss - memBefore!;
-              setCells((prev) =>
-                prev.map((c) =>
-                  c.id === cell.id ? { ...c, memoryDelta: delta } : c,
-                ),
-              );
-            } catch { /* ignore */ }
-          }, 1000);
+          const cellId = cell.id;
+          const unlisten = listen<KernelOutput>('kernel-output', async (event) => {
+            const { msg_type, content, parent_msg_id } = event.payload;
+            if (parent_msg_id !== msgId) return;
+            if (msg_type === 'status' && content.execution_state === 'idle') {
+              unlisten.then((fn) => fn());
+              // Small delay for OS to update RSS after GC
+              await new Promise((r) => setTimeout(r, 500));
+              try {
+                const { getKernelMemory } = await import('../../lib/ipc');
+                const info = await getKernelMemory(kernelId);
+                const delta = info.kernel_rss - memBefore!;
+                setCells((prev) =>
+                  prev.map((c) =>
+                    c.id === cellId ? { ...c, memoryDelta: delta } : c,
+                  ),
+                );
+              } catch { /* ignore */ }
+            }
+          });
         }
       } catch (e: unknown) {
         setCells((prev) =>
