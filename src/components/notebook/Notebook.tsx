@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import CodeCell from './CodeCell';
+import SearchBar from './SearchBar';
 import MarkdownCell from './MarkdownCell';
 import OutputArea from '../output/OutputArea';
 import type { Cell, Output, Notebook as NotebookType } from '../../types/notebook';
@@ -538,6 +539,43 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
   // ─── Line Numbers Toggle ───────────────────────────────────────
 
   const [showLineNumbers, setShowLineNumbers] = useState(true);
+  const [showSearch, setShowSearch] = useState(false);
+
+  const handleSearch = useCallback((query: string, matchCase: boolean) => {
+    const results: { cellIndex: number; lineNumber: number; text: string }[] = [];
+    const q = matchCase ? query : query.toLowerCase();
+    cells.forEach((cell, index) => {
+      const src = matchCase ? cell.source : cell.source.toLowerCase();
+      const lines = src.split('\n');
+      lines.forEach((line, lineNum) => {
+        if (line.includes(q)) {
+          results.push({ cellIndex: index, lineNumber: lineNum, text: line.trim() });
+        }
+      });
+    });
+    return results;
+  }, [cells]);
+
+  const handleReplace = useCallback((query: string, replacement: string, matchCase: boolean) => {
+    // Replace first occurrence in the focused cell
+    setCells((prev) =>
+      prev.map((c, i) => {
+        if (i !== focusedIndex) return c;
+        const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), matchCase ? '' : 'i');
+        return { ...c, source: c.source.replace(regex, replacement) };
+      }),
+    );
+    onDirty?.();
+  }, [focusedIndex, onDirty]);
+
+  const handleReplaceAll = useCallback((query: string, replacement: string, matchCase: boolean) => {
+    const flags = matchCase ? 'g' : 'gi';
+    const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), flags);
+    setCells((prev) =>
+      prev.map((c) => ({ ...c, source: c.source.replace(regex, replacement) })),
+    );
+    onDirty?.();
+  }, [onDirty]);
 
   const toggleLineNumbers = useCallback(() => {
     setShowLineNumbers((prev) => !prev);
@@ -578,6 +616,13 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
     function handleKeyDown(e: KeyboardEvent) {
       const target = e.target as HTMLElement;
       if (target.closest('.cm-editor') || target.tagName === 'TEXTAREA' || target.tagName === 'INPUT') {
+        return;
+      }
+
+      // Ctrl+F opens search regardless of mode
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        setShowSearch(true);
         return;
       }
 
@@ -703,6 +748,14 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
 
   return (
     <div className="notebook">
+      {showSearch && (
+        <SearchBar
+          onClose={() => setShowSearch(false)}
+          onSearch={handleSearch}
+          onReplace={handleReplace}
+          onReplaceAll={handleReplaceAll}
+        />
+      )}
       {cells.map((cell, index) => {
         if (hiddenCells.has(index)) return null; // Hidden by collapsed heading
         const headingLevel = cell.cell_type === 'markdown' ? getHeadingLevel(cell.source) : 0;

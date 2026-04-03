@@ -1480,6 +1480,118 @@ body {
   color: var(--text-color);
 }
 
+/* 4.3: Search and Replace bar */
+.search-bar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--bg-page);
+  border-bottom: 1px solid var(--border-color);
+  padding: 6px 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.search-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.search-bar-row:last-child {
+  margin-bottom: 0;
+}
+
+.search-input {
+  flex: 1;
+  padding: 4px 8px;
+  font-size: 13px;
+  font-family: var(--font-ui);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  outline: none;
+  background: var(--bg-page);
+  color: var(--text-color);
+}
+
+.search-input:focus {
+  border-color: var(--color-command);
+}
+
+.search-toggle-replace {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 10px;
+  color: var(--text-muted);
+  width: 20px;
+  padding: 0;
+}
+
+.search-match-case {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.search-match-case input {
+  width: 12px;
+  height: 12px;
+}
+
+.search-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  min-width: 60px;
+  text-align: center;
+}
+
+.search-nav-btn,
+.search-close-btn {
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: 2px;
+  cursor: pointer;
+  font-size: 10px;
+  color: var(--text-muted);
+  padding: 2px 6px;
+}
+
+.search-nav-btn:hover,
+.search-close-btn:hover {
+  background: #e0e0e0;
+  color: var(--text-color);
+}
+
+.search-nav-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.search-action-btn {
+  padding: 3px 10px;
+  font-size: 11px;
+  background: var(--bg-page);
+  border: 1px solid var(--border-color);
+  border-radius: 2px;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  color: var(--text-color);
+}
+
+.search-action-btn:hover {
+  background: #e0e0e0;
+}
+
+.search-action-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
 /* 3.3: Output pagination */
 .output-show-more {
   display: block;
