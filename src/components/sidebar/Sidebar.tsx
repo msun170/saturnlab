@@ -50,7 +50,7 @@ export default function Sidebar({ width, onResize }: SidebarProps) {
           onClick={() => togglePanel('files')}
           title="File Browser"
         >
-          <span className="sidebar-icon-emoji">&#128193;</span>
+          <span className="sidebar-icon-sym">{'\u{1F5C0}'}</span>
           <span className="sidebar-icon-label">Files</span>
         </button>
         <button
@@ -58,7 +58,7 @@ export default function Sidebar({ width, onResize }: SidebarProps) {
           onClick={() => togglePanel('kernels')}
           title="Running Kernels"
         >
-          <span className="sidebar-icon-emoji">&#9654;</span>
+          <span className="sidebar-icon-sym">{'\u25B6'}</span>
           <span className="sidebar-icon-label">Kernels</span>
         </button>
         <button
@@ -66,7 +66,7 @@ export default function Sidebar({ width, onResize }: SidebarProps) {
           onClick={() => togglePanel('toc')}
           title="Table of Contents"
         >
-          <span className="sidebar-icon-emoji">&#9776;</span>
+          <span className="sidebar-icon-sym">{'\u2630'}</span>
           <span className="sidebar-icon-label">TOC</span>
         </button>
         <button
@@ -74,7 +74,7 @@ export default function Sidebar({ width, onResize }: SidebarProps) {
           onClick={() => togglePanel('memory')}
           title="Variable Inspector"
         >
-          <span className="sidebar-icon-emoji">{'\u{1F4CA}'}</span>
+          <span className="sidebar-icon-sym">x=</span>
           <span className="sidebar-icon-label">Vars</span>
         </button>
       </div>
