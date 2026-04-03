@@ -1,76 +1,58 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import Notebook from './components/notebook/Notebook';
 import type { NotebookHandle } from './components/notebook/Notebook';
 import MenuBar from './components/toolbar/MenuBar';
 import ShortcutsModal from './components/toolbar/ShortcutsModal';
+import { useAppStore } from './store';
 import { listKernelspecs, startKernel, stopKernel, readNotebook, writeNotebook } from './lib/ipc';
-import type { KernelSpec } from './types/kernel';
-import type { Notebook as NotebookType } from './types/notebook';
 import './App.css';
 
-function createEmptyNotebook(): NotebookType {
-  return {
-    nbformat: 4,
-    nbformat_minor: 5,
-    metadata: {
-      kernelspec: { name: 'python3', display_name: 'Python 3', language: 'python' },
-    },
-    cells: [
-      {
-        cell_type: 'code',
-        source: '',
-        metadata: {},
-        outputs: [],
-        execution_count: null,
-      },
-    ],
-  };
-}
-
 function App() {
-  const [kernelspecs, setKernelspecs] = useState<KernelSpec[]>([]);
-  const [kernelId, setKernelId] = useState<string | null>(null);
-  const [kernelStatus, setKernelStatus] = useState<'disconnected' | 'starting' | 'idle' | 'busy'>('disconnected');
-  const [notebook, setNotebook] = useState<NotebookType>(createEmptyNotebook);
-  const [filePath, setFilePath] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [focusedCellType, setFocusedCellType] = useState<string>('code');
-  const [showShortcuts, setShowShortcuts] = useState(false);
+  const store = useAppStore();
+  const tab = store.getActiveTab();
   const notebookRef = useRef<NotebookHandle>(null);
 
   // Discover kernelspecs on mount
   useEffect(() => {
     listKernelspecs()
-      .then(setKernelspecs)
-      .catch((e: unknown) => setError(`Failed to discover kernels: ${e}`));
+      .then((specs) => store.setKernelspecs(specs))
+      .catch((e: unknown) => store.setError(`Failed to discover kernels: ${e}`));
   }, []);
+
+  // ─── Helpers ───────────────────────────────────────────────────
+
+  const updateActiveTab = useCallback(
+    (patch: Parameters<typeof store.updateTab>[1]) => {
+      if (tab) store.updateTab(tab.id, patch);
+    },
+    [tab?.id],
+  );
 
   // ─── Kernel Lifecycle ──────────────────────────────────────────
 
   const handleStartKernel = useCallback(async (specName: string) => {
-    setError(null);
-    setKernelStatus('starting');
+    if (!tab) return;
+    store.setError(null);
+    updateActiveTab({ kernelStatus: 'starting' });
     try {
       const id = await startKernel(specName);
-      setKernelId(id);
-      setKernelStatus('idle');
+      updateActiveTab({ kernelId: id, kernelStatus: 'idle' });
     } catch (e: unknown) {
-      setError(`Failed to start kernel: ${e}`);
-      setKernelStatus('disconnected');
+      store.setError(`Failed to start kernel: ${e}`);
+      updateActiveTab({ kernelStatus: 'disconnected' });
     }
-  }, []);
+  }, [tab?.id, updateActiveTab]);
 
   const handleStopKernel = useCallback(async () => {
-    if (!kernelId) return;
+    if (!tab?.kernelId) return;
     try {
-      await stopKernel(kernelId);
-      setKernelId(null);
-      setKernelStatus('disconnected');
+      await stopKernel(tab.kernelId);
+      updateActiveTab({ kernelId: null, kernelStatus: 'disconnected' });
     } catch (e: unknown) {
-      setError(`Failed to stop kernel: ${e}`);
+      store.setError(`Failed to stop kernel: ${e}`);
     }
-  }, [kernelId]);
+  }, [tab?.id, tab?.kernelId, updateActiveTab]);
 
   // ─── File Operations ───────────────────────────────────────────
 
@@ -82,31 +64,46 @@ function App() {
       });
       if (!selected) return;
 
-      // plugin-dialog may return string or object with path property
       const path = typeof selected === 'string' ? selected : (selected as unknown as { path: string }).path;
       if (!path) return;
 
       const nb = await readNotebook(path);
-      setNotebook(nb);
-      setFilePath(path);
-      setError(null);
+      const fileName = path.split(/[\\/]/).pop() ?? 'Untitled.ipynb';
+      store.setError(null);
 
-      // Auto-start kernel if we know the kernelspec
-      if (nb.metadata.kernelspec && kernelspecs.length > 0) {
+      // Check if this file is already open in a tab
+      const existing = store.tabs.find((t) => t.filePath === path);
+      if (existing) {
+        store.setActiveTab(existing.id);
+        return;
+      }
+
+      // If current tab is empty and untouched, reuse it
+      if (tab && !tab.filePath && !tab.isDirty && !tab.kernelId) {
+        updateActiveTab({ notebook: nb, filePath: path, fileName });
+      } else {
+        // Open in a new tab
+        store.addTab({ notebook: nb, filePath: path, fileName });
+      }
+
+      // Auto-start kernel
+      const specs = store.kernelspecs;
+      if (nb.metadata.kernelspec && specs.length > 0) {
         const specName = nb.metadata.kernelspec.name;
-        const found = kernelspecs.find((s) => s.name === specName);
-        if (found && !kernelId) {
-          handleStartKernel(specName);
+        if (specs.find((s) => s.name === specName)) {
+          // Need to wait for state to settle, then start kernel
+          setTimeout(() => handleStartKernel(specName), 100);
         }
       }
     } catch (e: unknown) {
-      setError(`Failed to open file: ${e}`);
+      store.setError(`Failed to open file: ${e}`);
     }
-  }, [kernelspecs, kernelId, handleStartKernel]);
+  }, [tab?.id, tab?.filePath, tab?.isDirty, tab?.kernelId, store.kernelspecs, handleStartKernel, updateActiveTab]);
 
   const handleSaveFile = useCallback(async () => {
+    if (!tab) return;
     try {
-      let path = filePath;
+      let path = tab.filePath;
       if (!path) {
         const selected = await save({
           filters: [{ name: 'Jupyter Notebook', extensions: ['ipynb'] }],
@@ -114,41 +111,45 @@ function App() {
         });
         if (!selected) return;
         path = selected;
-        setFilePath(path);
+        const fileName = path.split(/[\\/]/).pop() ?? 'Untitled.ipynb';
+        updateActiveTab({ filePath: path, fileName });
       }
-      await writeNotebook(path!, notebook);
+      await writeNotebook(path, tab.notebook);
+      updateActiveTab({ isDirty: false });
     } catch (e: unknown) {
-      setError(`Failed to save file: ${e}`);
+      store.setError(`Failed to save file: ${e}`);
     }
-  }, [filePath, notebook]);
+  }, [tab?.id, tab?.filePath, tab?.notebook, updateActiveTab]);
 
   const handleSaveAs = useCallback(async () => {
+    if (!tab) return;
     try {
       const selected = await save({
         filters: [{ name: 'Jupyter Notebook', extensions: ['ipynb'] }],
         defaultPath: 'Untitled.ipynb',
       });
       if (!selected) return;
-      setFilePath(selected);
-      await writeNotebook(selected, notebook);
+      const fileName = selected.split(/[\\/]/).pop() ?? 'Untitled.ipynb';
+      updateActiveTab({ filePath: selected, fileName });
+      await writeNotebook(selected, tab.notebook);
+      updateActiveTab({ isDirty: false });
     } catch (e: unknown) {
-      setError(`Failed to save: ${e}`);
+      store.setError(`Failed to save: ${e}`);
     }
-  }, [notebook]);
+  }, [tab?.id, tab?.notebook, updateActiveTab]);
 
   const handleNewNotebook = useCallback(() => {
-    setNotebook(createEmptyNotebook());
-    setFilePath(null);
+    store.addTab();
   }, []);
 
   const handleRestartKernel = useCallback(async () => {
-    if (!kernelId) return;
-    const specName = kernelspecs.length > 0 ? kernelspecs[0].name : null;
+    if (!tab?.kernelId) return;
+    const specName = store.kernelspecs.length > 0 ? store.kernelspecs[0].name : null;
     await handleStopKernel();
     if (specName) {
       await handleStartKernel(specName);
     }
-  }, [kernelId, kernelspecs, handleStopKernel, handleStartKernel]);
+  }, [tab?.kernelId, store.kernelspecs, handleStopKernel, handleStartKernel]);
 
   // ─── Keyboard Shortcuts ────────────────────────────────────────
 
@@ -169,11 +170,10 @@ function App() {
 
   // ─── Render ────────────────────────────────────────────────────
 
-  const fileName = filePath ? filePath.split(/[\\/]/).pop() : 'Untitled.ipynb';
+  if (!tab) return null;
 
   return (
     <div className="app">
-      {/* Menu bar with real dropdowns */}
       <MenuBar
         onOpen={handleOpenFile}
         onSave={handleSaveFile}
@@ -195,14 +195,13 @@ function App() {
         onRestartAndClear={async () => { notebookRef.current?.clearAllOutputs(); await handleRestartKernel(); }}
         onRestartAndRunAll={async () => {
           await handleRestartKernel();
-          // Wait for React to propagate the new kernelId to the Notebook
           await new Promise((r) => setTimeout(r, 500));
           notebookRef.current?.runAll();
         }}
         onToggleLineNumbers={() => notebookRef.current?.toggleLineNumbers()}
-        onShowShortcuts={() => setShowShortcuts(true)}
-        fileName={fileName ?? 'Untitled.ipynb'}
-        hasKernel={!!kernelId}
+        onShowShortcuts={() => store.setShowShortcuts(true)}
+        fileName={tab.fileName}
+        hasKernel={!!tab.kernelId}
       />
 
       {/* Toolbar */}
@@ -223,23 +222,23 @@ function App() {
           <button onClick={() => notebookRef.current?.moveFocusedCell('down')} className="toolbar-btn" title="Move Down">↓</button>
         </div>
         <div className="toolbar-group">
-          <button onClick={() => notebookRef.current?.runCell()} className="toolbar-btn run-btn" title="Run (Shift+Enter)" disabled={!kernelId}>▶ Run</button>
-          <button onClick={() => notebookRef.current?.interruptKernel()} className="toolbar-btn" title="Interrupt" disabled={!kernelId}>⏹</button>
-          <button onClick={handleRestartKernel} className="toolbar-btn" title="Restart Kernel" disabled={!kernelId}>⟳</button>
+          <button onClick={() => notebookRef.current?.runCell()} className="toolbar-btn run-btn" title="Run (Shift+Enter)" disabled={!tab.kernelId}>▶ Run</button>
+          <button onClick={() => notebookRef.current?.interruptKernel()} className="toolbar-btn" title="Interrupt" disabled={!tab.kernelId}>⏹</button>
+          <button onClick={handleRestartKernel} className="toolbar-btn" title="Restart Kernel" disabled={!tab.kernelId}>⟳</button>
         </div>
         <div className="toolbar-group">
-          <select className="cell-type-select" value={focusedCellType} onChange={(e) => notebookRef.current?.changeFocusedCellType(e.target.value as 'code' | 'markdown')}>
+          <select className="cell-type-select" value={tab.focusedCellType} onChange={(e) => notebookRef.current?.changeFocusedCellType(e.target.value as 'code' | 'markdown')}>
             <option value="code">Code</option>
             <option value="markdown">Markdown</option>
           </select>
         </div>
         <div className="toolbar-spacer" />
-        {!kernelId ? (
-          kernelspecs.length > 0 && (
+        {!tab.kernelId ? (
+          store.kernelspecs.length > 0 && (
             <div className="toolbar-group">
               <select className="kernel-select" defaultValue="" onChange={(e) => { if (e.target.value) handleStartKernel(e.target.value); }}>
                 <option value="" disabled>Start Kernel...</option>
-                {kernelspecs.map((spec) => (
+                {store.kernelspecs.map((spec) => (
                   <option key={spec.name} value={spec.name}>{spec.display_name}</option>
                 ))}
               </select>
@@ -247,28 +246,31 @@ function App() {
           )
         ) : (
           <div className="kernel-status">
-            <span className={`status-dot ${kernelStatus}`} />
-            {kernelStatus}
+            <span className={`status-dot ${tab.kernelStatus}`} />
+            {tab.kernelStatus}
           </div>
         )}
       </div>
 
-      {error && <div className="error-banner">{error}</div>}
+      {store.error && <div className="error-banner">{store.error}</div>}
 
-      {/* Notebook — key forces remount when a new file is opened */}
       <Notebook
-        key={filePath ?? 'untitled'}
+        key={tab.id}
         ref={notebookRef}
-        notebook={notebook}
-        kernelId={kernelId}
-        onNotebookChange={setNotebook}
-        onFocusedCellChange={(type) => setFocusedCellType(type)}
-        onInterruptKernel={() => { if (kernelId) { import('./lib/ipc').then(({ interruptKernel }) => interruptKernel(kernelId)); } }}
+        notebook={tab.notebook}
+        kernelId={tab.kernelId}
+        onNotebookChange={(nb) => updateActiveTab({ notebook: nb, isDirty: true })}
+        onFocusedCellChange={(type) => updateActiveTab({ focusedCellType: type })}
+        onInterruptKernel={() => {
+          if (tab.kernelId) {
+            import('./lib/ipc').then(({ interruptKernel }) => interruptKernel(tab.kernelId!));
+          }
+        }}
         onRestartKernel={handleRestartKernel}
         onSave={handleSaveFile}
       />
 
-      {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
+      {store.showShortcuts && <ShortcutsModal onClose={() => store.setShowShortcuts(false)} />}
     </div>
   );
 }
