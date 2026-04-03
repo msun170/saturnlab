@@ -23,6 +23,8 @@ export interface TabState {
   pendingExecutions: Map<string, string>;
   /** True when this tab shows the Launcher instead of a notebook. */
   isLauncher: boolean;
+  /** Cell index to highlight (e.g. heaviest output cell). null = no highlight. */
+  highlightCellIndex: number | null;
 }
 
 function createEmptyNotebook(): Notebook {
@@ -64,6 +66,7 @@ function createDefaultTab(overrides?: Partial<TabState>): TabState {
     focusedCellType: 'code',
     pendingExecutions: new Map(),
     isLauncher: false,
+    highlightCellIndex: null,
     ...overrides,
   };
 }

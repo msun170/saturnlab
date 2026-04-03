@@ -7,6 +7,7 @@ import type { Cell, Output, Notebook as NotebookType } from '../../types/noteboo
 import type { KernelOutput } from '../../types/kernel';
 import { executeCode } from '../../lib/ipc';
 import { formatBytes } from '../../types/memory';
+import { useAppStore } from '../../store';
 
 interface CellState {
   id: string;
@@ -613,10 +614,26 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [focusedIndex, cells.length, kernelId, addCell, addCellAbove, changeCellType, cutCell, copyCell, pasteCell, undoDelete, deleteCell, toggleLineNumbers, onInterruptKernel, onRestartKernel, onSave]);
 
+  // Read highlight from store (set by clicking "Out: XX" in status bar)
+  const highlightCellIndex = useAppStore((s) => {
+    const tab = s.tabs.find((t) => t.id === s.activeTabId);
+    return tab?.highlightCellIndex ?? null;
+  });
+
+  const clearHighlight = useCallback(() => {
+    const store = useAppStore.getState();
+    const activeId = store.activeTabId;
+    if (activeId) store.updateTab(activeId, { highlightCellIndex: null });
+  }, []);
+
   return (
     <div className="notebook">
       {cells.map((cell, index) => (
-        <div key={cell.id} className="cell-container">
+        <div key={cell.id} className={`cell-container ${index === highlightCellIndex ? 'cell-highlighted' : ''}`}>
+          {/* Highlight dismiss button */}
+          {index === highlightCellIndex && (
+            <button className="cell-highlight-dismiss" onClick={clearHighlight} title="Dismiss">x</button>
+          )}
           {/* Cell toolbar */}
           <div className="cell-actions">
             <button onClick={() => moveCell(index, 'up')} disabled={index === 0} title="Move up">

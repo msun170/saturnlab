@@ -12,28 +12,44 @@ export default function StatusBar() {
 
   const kernelName = tab.notebook.metadata.kernelspec?.display_name ?? 'No Kernel';
 
-  // 3.4: Estimate notebook output size
   const outputStats = useMemo(() => {
     let totalBytes = 0;
     let imageCount = 0;
-    let largestCell = 0;
+    let largestCellBytes = 0;
+    let largestCellIndex = -1;
 
-    for (const cell of tab.notebook.cells) {
+    for (let i = 0; i < tab.notebook.cells.length; i++) {
+      const cell = tab.notebook.cells[i];
       if (!cell.outputs) continue;
       let cellBytes = 0;
       for (const output of cell.outputs) {
         const json = JSON.stringify(output);
         cellBytes += json.length;
-        // Count images
         const data = output.data as Record<string, unknown> | undefined;
         if (data?.['image/png'] || data?.['image/jpeg']) imageCount++;
       }
       totalBytes += cellBytes;
-      if (cellBytes > largestCell) largestCell = cellBytes;
+      if (cellBytes > largestCellBytes) {
+        largestCellBytes = cellBytes;
+        largestCellIndex = i;
+      }
     }
 
-    return { totalBytes, imageCount, largestCell };
+    return { totalBytes, imageCount, largestCellBytes, largestCellIndex };
   }, [tab.notebook.cells]);
+
+  const handleOutputClick = () => {
+    if (outputStats.largestCellIndex < 0) return;
+    const store = useAppStore.getState();
+    if (tab) {
+      store.updateTab(tab.id, { highlightCellIndex: outputStats.largestCellIndex });
+    }
+    // Scroll to the cell
+    const cells = document.querySelectorAll('.cell-container');
+    if (cells[outputStats.largestCellIndex]) {
+      cells[outputStats.largestCellIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
 
   return (
     <div className="status-bar">
@@ -57,7 +73,8 @@ export default function StatusBar() {
         {outputStats.totalBytes > 0 && (
           <div
             className="status-bar-item status-bar-outputs"
-            title={`Outputs: ${formatBytes(outputStats.totalBytes)} (${outputStats.imageCount} images, largest cell: ${formatBytes(outputStats.largestCell)})`}
+            onClick={handleOutputClick}
+            title={`Click to go to heaviest cell (cell ${outputStats.largestCellIndex + 1}: ${formatBytes(outputStats.largestCellBytes)}, ${outputStats.imageCount} images total)`}
           >
             Out: {formatBytes(outputStats.totalBytes)}
           </div>
