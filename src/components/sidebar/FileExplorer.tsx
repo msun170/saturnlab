@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { listDirectory, getCwd } from '../../lib/ipc';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { listDirectory, getCwd, renameFile } from '../../lib/ipc';
 import type { FileEntry } from '../../lib/ipc';
 import { useAppStore } from '../../store';
 
@@ -9,32 +9,31 @@ export default function FileExplorer() {
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set());
   const [subEntries, setSubEntries] = useState<Map<string, FileEntry[]>>(new Map());
   const [error, setError] = useState<string | null>(null);
+  const [renamingPath, setRenamingPath] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const renameInputRef = useRef<HTMLInputElement>(null);
 
-  // Get initial working directory
   useEffect(() => {
-    getCwd().then((dir) => {
-      setCurrentPath(dir);
-    }).catch((e) => setError(String(e)));
+    getCwd().then((dir) => setCurrentPath(dir)).catch((e) => setError(String(e)));
   }, []);
 
-  // Load directory contents when path changes
-  useEffect(() => {
+  const refreshDirectory = useCallback(() => {
     if (!currentPath) return;
-    listDirectory(currentPath)
-      .then(setEntries)
-      .catch((e) => setError(String(e)));
+    listDirectory(currentPath).then(setEntries).catch((e) => setError(String(e)));
   }, [currentPath]);
+
+  useEffect(() => {
+    refreshDirectory();
+  }, [refreshDirectory]);
 
   const handleClickFile = useCallback((entry: FileEntry) => {
     if (entry.is_dir) {
-      // Toggle directory expansion
       setExpandedDirs((prev) => {
         const next = new Set(prev);
         if (next.has(entry.path)) {
           next.delete(entry.path);
         } else {
           next.add(entry.path);
-          // Load subdirectory contents
           listDirectory(entry.path).then((subs) => {
             setSubEntries((prev) => new Map(prev).set(entry.path, subs));
           });
@@ -42,7 +41,6 @@ export default function FileExplorer() {
         return next;
       });
     } else if (entry.name.endsWith('.ipynb')) {
-      // Open notebook in a tab
       const store = useAppStore.getState();
       const existing = store.tabs.find((t) => t.filePath === entry.path);
       if (existing) {
@@ -50,8 +48,7 @@ export default function FileExplorer() {
       } else {
         import('../../lib/ipc').then(({ readNotebook }) => {
           readNotebook(entry.path).then((nb) => {
-            const fileName = entry.name;
-            store.addTab({ notebook: nb, filePath: entry.path, fileName });
+            store.addTab({ notebook: nb, filePath: entry.path, fileName: entry.name });
           });
         });
       }
@@ -67,10 +64,72 @@ export default function FileExplorer() {
     }
   }, [currentPath]);
 
+  const startRename = useCallback((entry: FileEntry, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setRenamingPath(entry.path);
+    setRenameValue(entry.name);
+    setTimeout(() => renameInputRef.current?.select(), 0);
+  }, []);
+
+  const commitRename = useCallback(async () => {
+    if (!renamingPath || !renameValue.trim()) {
+      setRenamingPath(null);
+      return;
+    }
+
+    const dir = renamingPath.replace(/[\\/][^\\/]+$/, '');
+    const sep = renamingPath.includes('\\') ? '\\' : '/';
+    const newPath = dir + sep + renameValue.trim();
+
+    if (newPath === renamingPath) {
+      setRenamingPath(null);
+      return;
+    }
+
+    try {
+      await renameFile(renamingPath, newPath);
+
+      // Update any open tab that references this file
+      const store = useAppStore.getState();
+      const tab = store.tabs.find((t) => t.filePath === renamingPath);
+      if (tab) {
+        store.updateTab(tab.id, { filePath: newPath, fileName: renameValue.trim() });
+      }
+
+      setRenamingPath(null);
+      refreshDirectory();
+    } catch (e) {
+      setError(`Rename failed: ${e}`);
+      setRenamingPath(null);
+    }
+  }, [renamingPath, renameValue, refreshDirectory]);
+
+  const cancelRename = useCallback(() => {
+    setRenamingPath(null);
+  }, []);
+
   const formatSize = (bytes: number): string => {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const formatDate = (timestamp: number): string => {
+    if (!timestamp) return '';
+    const date = new Date(timestamp * 1000);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } else if (diffDays === 1) {
+      return 'yesterday';
+    } else if (diffDays < 7) {
+      return `${diffDays} days ago`;
+    } else {
+      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    }
   };
 
   const currentDirName = currentPath.split(/[\\/]/).pop() ?? currentPath;
@@ -78,6 +137,7 @@ export default function FileExplorer() {
   const renderEntry = (entry: FileEntry, depth: number = 0) => {
     const isExpanded = expandedDirs.has(entry.path);
     const isNotebook = entry.name.endsWith('.ipynb');
+    const isRenaming = renamingPath === entry.path;
     const indent = depth * 16;
 
     return (
@@ -85,13 +145,31 @@ export default function FileExplorer() {
         <div
           className={`file-entry ${isNotebook ? 'file-entry-notebook' : ''}`}
           style={{ paddingLeft: `${12 + indent}px` }}
-          onClick={() => handleClickFile(entry)}
+          onClick={() => !isRenaming && handleClickFile(entry)}
+          onDoubleClick={(e) => startRename(entry, e)}
           title={entry.path}
         >
           <span className="file-entry-icon">
             {entry.is_dir ? (isExpanded ? '📂' : '📁') : (isNotebook ? '📓' : '📄')}
           </span>
-          <span className="file-entry-name">{entry.name}</span>
+          {isRenaming ? (
+            <input
+              ref={renameInputRef}
+              className="file-entry-rename-input"
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              onBlur={commitRename}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitRename();
+                if (e.key === 'Escape') cancelRename();
+              }}
+              autoFocus
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <span className="file-entry-name">{entry.name}</span>
+          )}
+          <span className="file-entry-modified">{formatDate(entry.modified)}</span>
           {!entry.is_dir && (
             <span className="file-entry-size">{formatSize(entry.size)}</span>
           )}
@@ -112,6 +190,9 @@ export default function FileExplorer() {
         <span className="file-explorer-path" title={currentPath}>
           {currentDirName}
         </span>
+        <button className="file-explorer-refresh" onClick={refreshDirectory} title="Refresh">
+          &#x21bb;
+        </button>
       </div>
       {error && <div className="file-explorer-error">{error}</div>}
       <div className="file-explorer-list">

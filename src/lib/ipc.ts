@@ -62,3 +62,7 @@ export async function listDirectory(path: string): Promise<FileEntry[]> {
 export async function getCwd(): Promise<string> {
   return invoke<string>('get_cwd');
 }
+
+export async function renameFile(oldPath: string, newPath: string): Promise<void> {
+  return invoke<void>('rename_file', { oldPath, newPath });
+}

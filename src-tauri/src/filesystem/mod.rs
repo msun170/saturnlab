@@ -72,6 +72,12 @@ pub fn get_cwd() -> Result<String, String> {
         .map_err(|e| format!("Failed to get cwd: {}", e))
 }
 
+/// Rename a file or directory.
+pub fn rename_file(old_path: &str, new_path: &str) -> Result<(), String> {
+    std::fs::rename(old_path, new_path)
+        .map_err(|e| format!("Failed to rename: {}", e))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

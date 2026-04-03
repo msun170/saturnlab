@@ -31,6 +31,7 @@ pub fn run() {
             // Filesystem
             commands::list_directory,
             commands::get_cwd,
+            commands::rename_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

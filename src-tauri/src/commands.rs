@@ -192,3 +192,8 @@ pub fn list_directory(path: String) -> Result<Vec<crate::filesystem::FileEntry>,
 pub fn get_cwd() -> Result<String, String> {
     crate::filesystem::get_cwd()
 }
+
+#[tauri::command]
+pub fn rename_file(old_path: String, new_path: String) -> Result<(), String> {
+    crate::filesystem::rename_file(&old_path, &new_path)
+}

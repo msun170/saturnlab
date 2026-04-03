@@ -958,6 +958,19 @@ body {
   color: var(--text-color);
 }
 
+.file-explorer-refresh {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-muted);
+  padding: 2px 4px;
+}
+
+.file-explorer-refresh:hover {
+  color: var(--text-color);
+}
+
 .file-explorer-error {
   padding: 8px;
   color: darkred;
@@ -1001,10 +1014,32 @@ body {
   text-overflow: ellipsis;
 }
 
+.file-entry-modified {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--text-muted);
+  min-width: 55px;
+  text-align: right;
+}
+
 .file-entry-size {
   flex-shrink: 0;
   font-size: 10px;
   color: var(--text-muted);
+  min-width: 45px;
+  text-align: right;
+}
+
+.file-entry-rename-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  font-family: var(--font-ui);
+  border: 1px solid var(--color-command);
+  border-radius: 2px;
+  padding: 1px 4px;
+  outline: none;
+  background: var(--bg-page);
 }
 
 /* ─── Kernel Panel ───────────────────────────────────── */
