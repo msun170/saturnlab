@@ -4,7 +4,10 @@ import type { SuspensionLayer } from '../store';
 
 const LAYER_B_DELAY = 30_000;  // 30 seconds
 const LAYER_A_DELAY = 300_000; // 5 minutes
-const LAYER_C_DELAY = 1_800_000; // 30 minutes (configurable later)
+// Layer C is OFF by default. User must opt in via settings.
+// When enabled, suggested values: 1_800_000 (30min), 3_600_000 (1hr), 7_200_000 (2hr)
+const LAYER_C_ENABLED = false;
+const LAYER_C_DELAY = 1_800_000; // 30 minutes
 
 interface TabTimers {
   layerB: ReturnType<typeof setTimeout> | null;
@@ -82,7 +85,7 @@ export function useSuspension() {
         setSuspension(tabId, 'layerA');
       }, LAYER_A_DELAY),
 
-      layerC: setTimeout(() => {
+      layerC: LAYER_C_ENABLED ? setTimeout(() => {
         setSuspension(tabId, 'layerC');
         // Stop the kernel for this tab
         const store = useAppStore.getState();
@@ -96,7 +99,7 @@ export function useSuspension() {
             });
           });
         }
-      }, LAYER_C_DELAY),
+      }, LAYER_C_DELAY) : null,
     };
 
     timers.current.set(tabId, tabTimers);
