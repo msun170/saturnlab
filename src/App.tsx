@@ -9,7 +9,10 @@ import TabBar from './components/tabs/TabBar';
 import Sidebar from './components/sidebar/Sidebar';
 import StatusBar from './components/statusbar/StatusBar';
 import ShortcutsModal from './components/toolbar/ShortcutsModal';
+import CommandPalette from './components/toolbar/CommandPalette';
+import type { Command } from './components/toolbar/CommandPalette';
 import { useSuspension } from './hooks/useSuspension';
+import { useAutosave } from './hooks/useAutosave';
 import { useAppStore } from './store';
 import { listKernelspecs, startKernel, stopKernel, readNotebook, writeNotebook } from './lib/ipc';
 import './App.css';
@@ -20,10 +23,12 @@ function App() {
   const kernelspecs = useAppStore((s) => s.kernelspecs);
   const error = useAppStore((s) => s.error);
   const showShortcuts = useAppStore((s) => s.showShortcuts);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
   const notebookRef = useRef<NotebookHandle>(null);
 
-  // Initialize suspension timer system
+  // Initialize suspension timer system and autosave
   useSuspension();
+  useAutosave();
 
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const saved = localStorage.getItem('saturn-sidebar-width');
@@ -209,6 +214,10 @@ function App() {
         e.preventDefault();
         handleSaveFile();
       }
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'P') {
+        e.preventDefault();
+        setShowCommandPalette((v) => !v);
+      }
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -381,6 +390,37 @@ function App() {
       <StatusBar />
 
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
+
+      {showCommandPalette && (
+        <CommandPalette
+          onClose={() => setShowCommandPalette(false)}
+          commands={[
+            { id: 'file.new', label: 'New Notebook', shortcut: '', action: handleNewNotebook },
+            { id: 'file.open', label: 'Open File', shortcut: 'Ctrl+O', action: handleOpenFile },
+            { id: 'file.save', label: 'Save', shortcut: 'Ctrl+S', action: handleSaveFile },
+            { id: 'file.saveAs', label: 'Save As', action: handleSaveAs },
+            { id: 'cell.run', label: 'Run Cell', shortcut: 'Shift+Enter', action: () => notebookRef.current?.runCell() },
+            { id: 'cell.runAll', label: 'Run All Cells', action: () => notebookRef.current?.runAll() },
+            { id: 'cell.runAbove', label: 'Run All Above', action: () => notebookRef.current?.runAllAbove() },
+            { id: 'cell.runBelow', label: 'Run All Below', action: () => notebookRef.current?.runAllBelow() },
+            { id: 'cell.addAbove', label: 'Insert Cell Above', shortcut: 'A', action: () => notebookRef.current?.addCellAbove('code') },
+            { id: 'cell.addBelow', label: 'Insert Cell Below', shortcut: 'B', action: () => notebookRef.current?.addCellBelow('code') },
+            { id: 'cell.delete', label: 'Delete Cell', shortcut: 'D,D', action: () => notebookRef.current?.deleteFocusedCell() },
+            { id: 'cell.cut', label: 'Cut Cell', shortcut: 'X', action: () => notebookRef.current?.cutCell() },
+            { id: 'cell.copy', label: 'Copy Cell', shortcut: 'C', action: () => notebookRef.current?.copyCell() },
+            { id: 'cell.paste', label: 'Paste Cell', shortcut: 'V', action: () => notebookRef.current?.pasteCell() },
+            { id: 'cell.toCode', label: 'Change Cell to Code', shortcut: 'Y', action: () => notebookRef.current?.changeFocusedCellType('code') },
+            { id: 'cell.toMarkdown', label: 'Change Cell to Markdown', shortcut: 'M', action: () => notebookRef.current?.changeFocusedCellType('markdown') },
+            { id: 'cell.toggleOutput', label: 'Toggle Cell Output', shortcut: 'O', action: () => {} },
+            { id: 'cell.toggleLineNumbers', label: 'Toggle Line Numbers', shortcut: 'L', action: () => notebookRef.current?.toggleLineNumbers() },
+            { id: 'cell.clearOutputs', label: 'Clear All Outputs', action: () => notebookRef.current?.clearAllOutputs() },
+            { id: 'kernel.interrupt', label: 'Interrupt Kernel', shortcut: 'I,I', action: () => { if (tab?.kernelId) import('./lib/ipc').then(({ interruptKernel }) => interruptKernel(tab.kernelId!)); } },
+            { id: 'kernel.restart', label: 'Restart Kernel', shortcut: '0,0', action: handleRestartKernel },
+            { id: 'help.shortcuts', label: 'Show Keyboard Shortcuts', shortcut: 'H', action: () => setShowShortcuts(true) },
+            { id: 'help.palette', label: 'Command Palette', shortcut: 'Ctrl+Shift+P', action: () => setShowCommandPalette(true) },
+          ] satisfies Command[]}
+        />
+      )}
     </div>
   );
 }
