@@ -71,6 +71,7 @@ interface MenuBarProps {
   onNewNotebook: () => void;
   onCloseTab: () => void;
   onDownloadPy: () => void;
+  onSaveWithoutOutputs: () => void;
   // Notebook operations (via ref)
   onCutCell: () => void;
   onCopyCell: () => void;
@@ -99,6 +100,7 @@ export default function MenuBar(props: MenuBarProps) {
     { divider: true, label: '' },
     { label: 'Save', action: props.onSave, shortcut: 'Ctrl+S' },
     { label: 'Save As...', action: props.onSaveAs },
+    { label: 'Save Without Outputs', action: props.onSaveWithoutOutputs },
     { divider: true, label: '' },
     { label: 'Download as Python (.py)', action: props.onDownloadPy },
     { divider: true, label: '' },

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import OutputArea from '../components/output/OutputArea';
 import type { Output } from '../types/notebook';
 
@@ -54,7 +54,7 @@ describe('OutputArea', () => {
     expect(container.querySelector('b')?.textContent).toBe('bold text');
   });
 
-  it('renders image output', () => {
+  it('renders image output', async () => {
     const outputs: Output[] = [
       {
         output_type: 'display_data',
@@ -62,9 +62,12 @@ describe('OutputArea', () => {
       },
     ];
     const { container } = render(<OutputArea outputs={outputs} />);
-    const img = container.querySelector('img');
-    expect(img).toBeTruthy();
-    expect(img?.src).toContain('data:image/png;base64,');
+    // IntersectionObserver mock fires async, wait for img to appear
+    await waitFor(() => {
+      const img = container.querySelector('img');
+      expect(img).toBeTruthy();
+      expect(img?.src).toContain('data:image/png;base64,');
+    });
   });
 
   it('always renders prompt spacer div for alignment', () => {

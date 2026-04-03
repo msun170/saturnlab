@@ -1418,6 +1418,41 @@ body {
   color: #4caf50;
 }
 
+/* 3.3: Output pagination */
+.output-show-more {
+  display: block;
+  background: none;
+  border: 1px dashed var(--border-color);
+  border-radius: 3px;
+  color: var(--color-command);
+  cursor: pointer;
+  padding: 4px 12px;
+  margin-top: 4px;
+  font-family: var(--font-code);
+  font-size: 12px;
+}
+
+.output-show-more:hover {
+  background: rgba(33, 150, 243, 0.05);
+  border-color: var(--color-command);
+}
+
+/* 3.2: Lazy image placeholder */
+.image-output-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f5f5;
+  border: 1px dashed var(--border-color);
+  border-radius: 2px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.image-placeholder-text {
+  font-family: var(--font-ui);
+}
+
 /* ─── Memory Bar (status bar) ────────────────────────── */
 
 .memory-bar {

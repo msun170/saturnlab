@@ -10,6 +10,7 @@ function createMockProps() {
     onNewNotebook: vi.fn(),
     onCloseTab: vi.fn(),
     onDownloadPy: vi.fn(),
+    onSaveWithoutOutputs: vi.fn(),
     onCutCell: vi.fn(),
     onCopyCell: vi.fn(),
     onPasteCell: vi.fn(),

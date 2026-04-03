@@ -226,6 +226,30 @@ function App() {
           if (tab) useAppStore.getState().removeTab(tab.id);
         }}
         onDownloadPy={() => {/* TODO */}}
+        onSaveWithoutOutputs={async () => {
+          if (!tab) return;
+          try {
+            const { save } = await import('@tauri-apps/plugin-dialog');
+            const selected = await save({
+              filters: [{ name: 'Jupyter Notebook', extensions: ['ipynb'] }],
+              defaultPath: tab.fileName.replace('.ipynb', '_clean.ipynb'),
+            });
+            if (!selected) return;
+            // Strip outputs from all code cells
+            const cleanNotebook = {
+              ...tab.notebook,
+              cells: tab.notebook.cells.map((cell) => ({
+                ...cell,
+                outputs: cell.cell_type === 'code' ? [] : cell.outputs,
+                execution_count: cell.cell_type === 'code' ? null : cell.execution_count,
+              })),
+            };
+            const { writeNotebook } = await import('./lib/ipc');
+            await writeNotebook(selected, cleanNotebook);
+          } catch (e: unknown) {
+            setError(`Failed to save: ${e}`);
+          }
+        }}
         onCutCell={() => notebookRef.current?.cutCell()}
         onCopyCell={() => notebookRef.current?.copyCell()}
         onPasteCell={() => notebookRef.current?.pasteCell()}
