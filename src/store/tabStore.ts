@@ -88,13 +88,12 @@ interface AppStore {
   setShowShortcuts: (show: boolean) => void;
 }
 
+const initialTab = createDefaultTab();
+
 export const useAppStore = create<AppStore>((set, get) => ({
-  // Initial state: one empty tab
-  tabs: (() => {
-    const tab = createDefaultTab();
-    return [tab];
-  })(),
-  activeTabId: null, // set after first tab is created
+  // Initial state: one empty tab, active
+  tabs: [initialTab],
+  activeTabId: initialTab.id,
 
   kernelspecs: [],
   error: null,
@@ -157,9 +156,3 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setError: (error) => set({ error }),
   setShowShortcuts: (show) => set({ showShortcuts: show }),
 }));
-
-// Initialize the activeTabId to the first tab
-const initialState = useAppStore.getState();
-if (initialState.tabs.length > 0 && !initialState.activeTabId) {
-  useAppStore.setState({ activeTabId: initialState.tabs[0].id });
-}
