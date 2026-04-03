@@ -42,25 +42,18 @@ function App() {
   // Discover kernelspecs on mount (retry once if empty, IPC might not be ready)
   useEffect(() => {
     const fetchSpecs = () => {
-      console.log('[Saturn] Fetching kernelspecs...');
       listKernelspecs()
         .then((specs) => {
-          console.log('[Saturn] Got kernelspecs:', specs.length, specs);
           setKernelspecs(specs);
           if (specs.length === 0) {
             setTimeout(() => {
-              console.log('[Saturn] Retrying kernelspecs...');
               listKernelspecs().then((retry) => {
-                console.log('[Saturn] Retry got:', retry.length, retry);
                 if (retry.length > 0) setKernelspecs(retry);
               }).catch(() => {});
             }, 2000);
           }
         })
-        .catch((e: unknown) => {
-          console.error('[Saturn] Failed to fetch kernelspecs:', e);
-          setError(`Failed to discover kernels: ${e}`);
-        });
+        .catch((e: unknown) => setError(`Failed to discover kernels: ${e}`));
     };
     fetchSpecs();
   }, []);

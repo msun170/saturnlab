@@ -99,7 +99,7 @@ export default function Launcher() {
                 role="button"
                 tabIndex={0}
                 onClick={() => {
-                  // Open a blank text file tab (future feature)
+                  // TODO: Text Editor not yet implemented (Step 5.5)
                 }}
               >
                 <div className="launcher-card-icon">
