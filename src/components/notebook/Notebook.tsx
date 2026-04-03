@@ -686,10 +686,12 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
           pasteCell(focusedIndex);
           break;
         case 'z':
-          if (!e.ctrlKey && !e.metaKey) {
-            e.preventDefault();
-            undoDelete();
+          if (e.ctrlKey || e.metaKey) {
+            // Ctrl+Z: don't intercept, let browser handle undo
+            return;
           }
+          e.preventDefault();
+          undoDelete();
           break;
         case 's':
           e.preventDefault();
@@ -767,7 +769,8 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
         <div
           key={cell.id}
           className={`cell-container ${index === highlightCellIndex ? 'cell-highlighted' : ''} ${dragOverIndex === index ? 'cell-drag-over' : ''}`}
-          onDragOver={(e) => { e.preventDefault(); setDragOverIndex(index); }}
+          onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverIndex(index); }}
+          onDragLeave={() => setDragOverIndex(null)}
           onDrop={(e) => {
             e.preventDefault();
             const fromIdx = parseInt(e.dataTransfer.getData('text/plain'), 10);
@@ -785,19 +788,21 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
             setDragOverIndex(null);
           }}
         >
-          {/* Drag handle */}
+          {/* Drag handle - only this element is draggable, not the whole cell */}
           <div
             className="cell-drag-handle"
-            draggable
+            draggable="true"
             onDragStart={(e) => {
+              e.stopPropagation();
               e.dataTransfer.setData('text/plain', String(index));
               e.dataTransfer.effectAllowed = 'move';
+              e.dataTransfer.dropEffect = 'move';
               setDragIndex(index);
             }}
             onDragEnd={() => { setDragIndex(null); setDragOverIndex(null); }}
             title="Drag to reorder"
           >
-            &#x2630;
+            &#x283F;
           </div>
           {/* Highlight dismiss button */}
           {index === highlightCellIndex && (

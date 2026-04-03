@@ -3,7 +3,7 @@ import { EditorView, keymap, placeholder as cmPlaceholder } from '@codemirror/vi
 import { EditorState, Prec } from '@codemirror/state';
 import { python } from '@codemirror/lang-python';
 import { defaultKeymap } from '@codemirror/commands';
-import { autocompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
+import { autocompletion, acceptCompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
 import { basicSetup } from 'codemirror';
 
 interface CodeCellProps {
@@ -132,14 +132,15 @@ export default function CodeCell({
           try {
             const result = await inspectCode(kid, code, pos);
             if (result.found && result.data?.['text/plain']) {
-              // Strip ANSI escape codes from the tooltip text
+              // Convert ANSI to HTML for colored tooltip
               const rawText = result.data['text/plain'];
-              const ansiRegex = new RegExp(String.fromCharCode(27) + '\\[[0-9;]*m', 'g');
-              const cleanText = rawText.replace(ansiRegex, '');
+              const Convert = (await import('ansi-to-html')).default;
+              const convert = new Convert({ fg: '#333', bg: '#fff', newline: true });
+              const htmlContent = convert.toHtml(rawText);
 
               const tooltip = document.createElement('div');
               tooltip.className = 'kernel-tooltip';
-              tooltip.textContent = cleanText;
+              tooltip.innerHTML = htmlContent;
               const coords = view.coordsAtPos(pos);
               if (coords) {
                 tooltip.style.position = 'fixed';
@@ -168,7 +169,14 @@ export default function CodeCell({
         python(),
         jupyterLightTheme,
         keymap.of(defaultKeymap),
-        autocompletion({ override: [kernelCompletionSource] }),
+        autocompletion({
+          override: [kernelCompletionSource],
+          activateOnTyping: true,
+        }),
+        keymap.of([{
+          key: 'Tab',
+          run: acceptCompletion,
+        }]),
         updateListener,
         cmPlaceholder(''),
         EditorView.lineWrapping,

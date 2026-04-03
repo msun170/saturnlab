@@ -1493,23 +1493,27 @@ body {
 
 .collapse-toggle {
   position: absolute;
-  left: 8px;
-  top: 10px;
+  left: calc(var(--prompt-width) + 8px);
+  top: 12px;
   z-index: 5;
-  background: var(--bg-cell);
+  background: var(--bg-page);
   border: 1px solid var(--border-color);
   cursor: pointer;
   font-size: 9px;
   color: var(--text-muted);
-  padding: 2px 4px;
+  padding: 1px 3px;
   border-radius: 2px;
-  opacity: 0.6;
+  opacity: 0;
   transition: opacity 0.15s;
 }
 
+.markdown-cell-wrapper:hover .collapse-toggle {
+  opacity: 0.7;
+}
+
 .collapse-toggle:hover {
-  opacity: 1;
-  background: rgba(0, 0, 0, 0.05);
+  opacity: 1 !important;
+  background: #e8e8e8;
   color: var(--text-color);
 }
 
