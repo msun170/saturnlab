@@ -162,11 +162,13 @@ body {
   align-items: center;
   gap: 2px;
   padding: 4px 24px;
-  margin: 0 -24px 8px;
+  margin: 0 -24px 0;
   background-color: var(--bg-toolbar);
   border-bottom: 1px solid var(--border-color);
   min-height: 32px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
 }
+
 
 /* Toolbar button groups */
 .toolbar-actions {
@@ -280,6 +282,8 @@ body {
 .notebook {
   display: flex;
   flex-direction: column;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
 }
 
 .cell-container {
