@@ -1,5 +1,6 @@
 import { useAppStore } from '../../store';
 import type { KernelSpec } from '../../types/kernel';
+import PythonIcon from '../icons/PythonIcon';
 
 export default function Launcher() {
   const kernelspecs = useAppStore((s) => s.kernelspecs);
@@ -67,7 +68,11 @@ export default function Launcher() {
                     }}
                   >
                     <div className="launcher-card-icon">
-                      <span className="launcher-card-kernel-icon">&#128013;</span>
+                      {spec.language === 'python' ? (
+                        <PythonIcon size={48} />
+                      ) : (
+                        <span className="launcher-card-kernel-icon">{spec.display_name.charAt(0)}</span>
+                      )}
                     </div>
                     <div className="launcher-card-label">
                       <p>{spec.display_name}</p>
