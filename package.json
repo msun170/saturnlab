@@ -30,6 +30,7 @@
     "markdown-it": "^14.1.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-window": "^2.2.7",
     "zustand": "^5.0.12"
   },
   "devDependencies": {
@@ -40,6 +41,7 @@
     "@types/markdown-it": "^14.1.2",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
+    "@types/react-window": "^2.0.0",
     "@vitejs/plugin-react": "^4.6.0",
     "jsdom": "^29.0.1",
     "typescript": "~5.8.3",

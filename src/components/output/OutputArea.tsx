@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { Output } from '../../types/notebook';
 import TextOutput from './TextOutput';
 import ImageOutput from './ImageOutput';
@@ -8,7 +9,8 @@ interface OutputAreaProps {
   outputs: Output[];
 }
 
-export default function OutputArea({ outputs }: OutputAreaProps) {
+// Memoize to prevent re-rendering unchanged outputs when sibling cells change
+const OutputArea = memo(function OutputArea({ outputs }: OutputAreaProps) {
   if (outputs.length === 0) return null;
 
   return (
@@ -28,7 +30,9 @@ export default function OutputArea({ outputs }: OutputAreaProps) {
       ))}
     </div>
   );
-}
+});
+
+export default OutputArea;
 
 function OutputRenderer({ output }: { output: Output }) {
   switch (output.output_type) {
