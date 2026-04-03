@@ -595,8 +595,9 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
                 onChange={(src) => handleCellChange(index, src)}
                 onExecute={() => handleExecuteCell(index)}
                 onFocus={() => { setFocusedIndex(index); setEditMode(true); }}
-              />
-              {!cell.outputHidden && <OutputArea outputs={cell.outputs} />}
+              >
+                {!cell.outputHidden && <OutputArea outputs={cell.outputs} />}
+              </CodeCell>
             </>
           ) : (
             <MarkdownCell

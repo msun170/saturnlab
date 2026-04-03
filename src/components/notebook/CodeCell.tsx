@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, type ReactNode } from 'react';
 import { EditorView, keymap, placeholder as cmPlaceholder } from '@codemirror/view';
 import { EditorState } from '@codemirror/state';
 import { python } from '@codemirror/lang-python';
@@ -16,6 +16,7 @@ interface CodeCellProps {
   onChange: (value: string) => void;
   onExecute: () => void;
   onFocus: () => void;
+  children?: ReactNode;
 }
 
 export default function CodeCell({
@@ -28,6 +29,7 @@ export default function CodeCell({
   onChange,
   onExecute,
   onFocus,
+  children,
 }: CodeCellProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -156,6 +158,7 @@ export default function CodeCell({
           <div ref={editorRef} className="code-editor" />
         </div>
       </div>
+      {children}
     </div>
   );
 }
