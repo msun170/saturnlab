@@ -2,8 +2,9 @@ import { useState } from 'react';
 import FileExplorer from './FileExplorer';
 import KernelPanel from './KernelPanel';
 import TableOfContents from './TableOfContents';
+import VariableInspector from './VariableInspector';
 
-type SidebarPanel = 'files' | 'kernels' | 'toc';
+type SidebarPanel = 'files' | 'kernels' | 'toc' | 'memory';
 
 interface SidebarProps {
   width: number;
@@ -68,6 +69,14 @@ export default function Sidebar({ width, onResize }: SidebarProps) {
           <span className="sidebar-icon-emoji">&#9776;</span>
           <span className="sidebar-icon-label">TOC</span>
         </button>
+        <button
+          className={`sidebar-icon ${activePanel === 'memory' ? 'active' : ''}`}
+          onClick={() => togglePanel('memory')}
+          title="Variable Inspector"
+        >
+          <span className="sidebar-icon-emoji">{'\u{1F4CA}'}</span>
+          <span className="sidebar-icon-label">Vars</span>
+        </button>
       </div>
 
       {/* Panel content */}
@@ -76,6 +85,7 @@ export default function Sidebar({ width, onResize }: SidebarProps) {
           {activePanel === 'files' && <FileExplorer />}
           {activePanel === 'kernels' && <KernelPanel />}
           {activePanel === 'toc' && <TableOfContents />}
+          {activePanel === 'memory' && <VariableInspector />}
         </div>
       )}
 

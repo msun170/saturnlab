@@ -1171,6 +1171,138 @@ body {
 .toc-h3 { font-weight: 500; }
 .toc-h4, .toc-h5, .toc-h6 { font-weight: 400; color: var(--text-muted); }
 
+/* ─── Variable Inspector ─────────────────────────────── */
+
+.var-inspector {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.var-inspector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.var-inspector-refresh {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-muted);
+  padding: 2px 4px;
+}
+
+.var-inspector-refresh:hover {
+  color: var(--text-color);
+}
+
+.var-inspector-empty {
+  padding: 16px 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.var-inspector-table-container {
+  flex: 1;
+  overflow: auto;
+}
+
+.var-inspector-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.var-inspector-table th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-toolbar);
+  padding: 4px 6px;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
+}
+
+.var-th-sortable {
+  cursor: pointer;
+}
+
+.var-th-sortable:hover {
+  color: var(--color-command);
+}
+
+.var-inspector-table td {
+  padding: 3px 6px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100px;
+}
+
+.var-inspector-table tr:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.var-name { font-weight: 500; color: var(--text-color); }
+.var-type { color: var(--text-muted); }
+.var-size { font-family: var(--font-code); font-size: 10px; }
+.var-shape { font-family: var(--font-code); font-size: 10px; color: var(--text-muted); }
+
+.var-delete {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #ccc;
+  font-size: 12px;
+  padding: 0 4px;
+  border-radius: 2px;
+}
+
+.var-delete:hover {
+  color: #e53935;
+  background: rgba(229, 57, 53, 0.1);
+}
+
+/* ─── Memory Bar (status bar) ────────────────────────── */
+
+.memory-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.memory-bar-track {
+  width: 40px;
+  height: 6px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.memory-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s, background-color 0.3s;
+}
+
+.memory-bar-text {
+  font-family: var(--font-code);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
 /* ─── Launcher (from JupyterLab launcher/style/base.css) ───── */
 
 .launcher {

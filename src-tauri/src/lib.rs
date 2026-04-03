@@ -8,6 +8,7 @@ mod settings;
 
 use commands::ZmqPool;
 use kernel::manager::KernelManager;
+use memory::monitor::MemoryMonitor;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -16,6 +17,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(KernelManager::new())
         .manage(ZmqPool::new())
+        .manage(std::sync::Mutex::new(MemoryMonitor::new()))
         .invoke_handler(tauri::generate_handler![
             // Kernel management
             commands::list_kernelspecs,
@@ -32,6 +34,9 @@ pub fn run() {
             commands::list_directory,
             commands::get_cwd,
             commands::rename_file,
+            // Memory
+            commands::get_kernel_memory,
+            commands::inspect_variables,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

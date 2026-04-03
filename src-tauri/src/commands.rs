@@ -2,6 +2,7 @@ use crate::kernel::discovery::KernelSpec;
 use crate::kernel::manager::{KernelInfo, KernelManager};
 use crate::kernel::message::JupyterMessage;
 use crate::kernel::zmq_client::{IopubListener, ShellClient};
+use crate::memory::monitor::{MemoryInfo, MemoryMonitor};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -196,4 +197,80 @@ pub fn get_cwd() -> Result<String, String> {
 #[tauri::command]
 pub fn rename_file(old_path: String, new_path: String) -> Result<(), String> {
     crate::filesystem::rename_file(&old_path, &new_path)
+}
+
+// ─── Memory ──────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn get_kernel_memory(
+    manager: State<'_, KernelManager>,
+    monitor: State<'_, std::sync::Mutex<MemoryMonitor>>,
+    kernel_id: String,
+) -> Result<MemoryInfo, String> {
+    let pid = manager.get_kernel_pid(&kernel_id).await?;
+    let mut mon = monitor.lock().map_err(|e| format!("Monitor lock: {}", e))?;
+    mon.get_kernel_memory(pid)
+        .ok_or_else(|| format!("Could not read memory for kernel {}", kernel_id))
+}
+
+/// The Python code that introspects kernel variables with deep sizing.
+const INSPECT_VARS_CODE: &str = r#"
+import sys as _sys, json as _json
+_saturn_vars = {}
+for _name, _obj in list(globals().items()):
+    if _name.startswith('_') or callable(_obj) or _name.startswith('__'):
+        continue
+    if _name in ('In', 'Out', 'exit', 'quit', 'get_ipython'):
+        continue
+    _type = type(_obj).__name__
+    try:
+        if _type == 'DataFrame':
+            _size = int(_obj.memory_usage(deep=True).sum())
+            _shape = str(_obj.shape)
+        elif _type == 'ndarray':
+            _size = int(_obj.nbytes)
+            _shape = str(_obj.shape)
+        elif _type == 'Tensor':
+            _size = int(_obj.element_size() * _obj.nelement())
+            _shape = str(tuple(_obj.shape))
+        elif _type == 'Series':
+            _size = int(_obj.memory_usage(deep=True))
+            _shape = str(_obj.shape)
+        else:
+            _size = _sys.getsizeof(_obj)
+            _shape = ''
+        _dtype = str(getattr(_obj, 'dtype', ''))
+        _saturn_vars[_name] = {
+            'type': _type, 'size': _size,
+            'shape': _shape, 'dtype': _dtype,
+            'id': id(_obj)
+        }
+    except Exception:
+        _saturn_vars[_name] = {'type': _type, 'size': -1, 'shape': '', 'dtype': '', 'id': 0}
+print('__SATURN_VARS__' + _json.dumps(_saturn_vars))
+"#;
+
+#[tauri::command]
+pub async fn inspect_variables(
+    app: tauri::AppHandle,
+    manager: State<'_, KernelManager>,
+    pool: State<'_, ZmqPool>,
+    kernel_id: String,
+    msg_id: Option<String>,
+) -> Result<String, String> {
+    let session = manager.get_session_id(&kernel_id).await?;
+    let client = pool.get_or_connect(&kernel_id, &manager, &app).await?;
+
+    let mut msg = JupyterMessage::execute_request(&session, INSPECT_VARS_CODE, true);
+    if let Some(id) = msg_id {
+        msg.header.msg_id = id;
+    }
+    let msg_id = msg.header.msg_id.clone();
+
+    {
+        let mut zmq = client.lock().await;
+        zmq.send_shell(&msg).await?;
+    }
+
+    Ok(msg_id)
 }

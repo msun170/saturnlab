@@ -158,6 +158,15 @@ impl KernelManager {
             .collect()
     }
 
+    /// Get the OS process ID for a running kernel.
+    pub async fn get_kernel_pid(&self, kernel_id: &str) -> Result<u32, String> {
+        let kernels = self.kernels.read().await;
+        let instance = kernels
+            .get(kernel_id)
+            .ok_or_else(|| format!("Kernel '{}' not found", kernel_id))?;
+        Ok(instance.process.id())
+    }
+
     /// Interrupt a running kernel (send SIGINT on Unix, ControlC event on Windows).
     pub async fn interrupt_kernel(&self, kernel_id: &str) -> Result<(), String> {
         let kernels = self.kernels.read().await;

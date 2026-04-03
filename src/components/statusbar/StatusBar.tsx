@@ -1,4 +1,5 @@
 import { useAppStore } from '../../store';
+import MemoryBar from './MemoryBar';
 
 export default function StatusBar() {
   const tabs = useAppStore((s) => s.tabs);
@@ -18,6 +19,7 @@ export default function StatusBar() {
           <span className="status-bar-separator">|</span>
           <span>{tab.kernelStatus}</span>
         </div>
+        <MemoryBar />
       </div>
 
       <div className="status-bar-center">

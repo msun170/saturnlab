@@ -66,3 +66,15 @@ export async function getCwd(): Promise<string> {
 export async function renameFile(oldPath: string, newPath: string): Promise<void> {
   return invoke<void>('rename_file', { oldPath, newPath });
 }
+
+// ─── Memory ──────────────────────────────────────────────────────────
+
+import type { MemoryInfo } from '../types/memory';
+
+export async function getKernelMemory(kernelId: string): Promise<MemoryInfo> {
+  return invoke<MemoryInfo>('get_kernel_memory', { kernelId });
+}
+
+export async function inspectVariables(kernelId: string, msgId?: string): Promise<string> {
+  return invoke<string>('inspect_variables', { kernelId, msgId: msgId ?? null });
+}
