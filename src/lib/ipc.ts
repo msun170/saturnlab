@@ -78,3 +78,21 @@ export async function getKernelMemory(kernelId: string): Promise<MemoryInfo> {
 export async function inspectVariables(kernelId: string, msgId?: string): Promise<string> {
   return invoke<string>('inspect_variables', { kernelId, msgId: msgId ?? null });
 }
+
+// ─── Code Intelligence ───────────────────────────────────────────────
+
+export async function completeCode(
+  kernelId: string,
+  code: string,
+  cursorPos: number,
+): Promise<{ matches: string[]; cursor_start: number; cursor_end: number; status: string }> {
+  return invoke('complete_code', { kernelId, code, cursorPos });
+}
+
+export async function inspectCode(
+  kernelId: string,
+  code: string,
+  cursorPos: number,
+): Promise<{ found: boolean; data: Record<string, string> }> {
+  return invoke('inspect_code', { kernelId, code, cursorPos });
+}

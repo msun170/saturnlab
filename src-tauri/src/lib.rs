@@ -27,6 +27,9 @@ pub fn run() {
             commands::list_running_kernels,
             // Code execution
             commands::execute_code,
+            // Code intelligence
+            commands::complete_code,
+            commands::inspect_code,
             // Notebook I/O
             commands::read_notebook,
             commands::write_notebook,

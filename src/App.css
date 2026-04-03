@@ -1606,6 +1606,24 @@ body {
   cursor: default;
 }
 
+/* 4.5: Kernel tooltip (Shift+Tab) */
+.kernel-tooltip {
+  background: var(--bg-page);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 8px 12px;
+  font-family: var(--font-code);
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-color);
+  max-width: 500px;
+  max-height: 300px;
+  overflow: auto;
+  white-space: pre-wrap;
+  z-index: 1000;
+}
+
 /* 3.3: Output pagination */
 .output-show-more {
   display: block;

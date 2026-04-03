@@ -2,6 +2,7 @@ use crate::kernel::discovery::KernelSpec;
 use crate::kernel::manager::{KernelInfo, KernelManager};
 use crate::kernel::message::JupyterMessage;
 use crate::kernel::zmq_client::{IopubListener, ShellClient};
+use zeromq::SocketRecv;
 use crate::memory::monitor::{MemoryInfo, MemoryMonitor};
 use serde::Serialize;
 use std::collections::HashMap;
@@ -197,6 +198,78 @@ pub fn get_cwd() -> Result<String, String> {
 #[tauri::command]
 pub fn rename_file(old_path: String, new_path: String) -> Result<(), String> {
     crate::filesystem::rename_file(&old_path, &new_path)
+}
+
+// ─── Code Intelligence ───────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn complete_code(
+    manager: State<'_, KernelManager>,
+    kernel_id: String,
+    code: String,
+    cursor_pos: usize,
+) -> Result<serde_json::Value, String> {
+    let session = manager.get_session_id(&kernel_id).await?;
+    let conn = manager.get_connection_info(&kernel_id).await?;
+
+    // Use a dedicated short-lived connection so we don't interfere with execute
+    let mut client = ShellClient::connect(conn).await?;
+
+    let msg = JupyterMessage::new(
+        "complete_request",
+        &session,
+        serde_json::json!({ "code": code, "cursor_pos": cursor_pos }),
+    );
+
+    client.send_shell(&msg).await?;
+
+    // Wait for reply (should be fast)
+    match tokio::time::timeout(std::time::Duration::from_secs(5), client.shell.recv()).await {
+        Ok(Ok(reply_msg)) => {
+            let frames: Vec<Vec<u8>> = reply_msg.into_vec().iter().map(|f| f.to_vec()).collect();
+            if let Ok(reply) = JupyterMessage::from_wire_frames(&frames, client.connection.key.as_bytes()) {
+                Ok(reply.content)
+            } else {
+                Err("Failed to parse complete_reply".to_string())
+            }
+        }
+        Ok(Err(e)) => Err(format!("Shell recv error: {}", e)),
+        Err(_) => Err("Completion timeout".to_string()),
+    }
+}
+
+#[tauri::command]
+pub async fn inspect_code(
+    manager: State<'_, KernelManager>,
+    kernel_id: String,
+    code: String,
+    cursor_pos: usize,
+) -> Result<serde_json::Value, String> {
+    let session = manager.get_session_id(&kernel_id).await?;
+    let conn = manager.get_connection_info(&kernel_id).await?;
+
+    let mut client = ShellClient::connect(conn).await?;
+
+    let msg = JupyterMessage::new(
+        "inspect_request",
+        &session,
+        serde_json::json!({ "code": code, "cursor_pos": cursor_pos, "detail_level": 0 }),
+    );
+
+    client.send_shell(&msg).await?;
+
+    match tokio::time::timeout(std::time::Duration::from_secs(5), client.shell.recv()).await {
+        Ok(Ok(reply_msg)) => {
+            let frames: Vec<Vec<u8>> = reply_msg.into_vec().iter().map(|f| f.to_vec()).collect();
+            if let Ok(reply) = JupyterMessage::from_wire_frames(&frames, client.connection.key.as_bytes()) {
+                Ok(reply.content)
+            } else {
+                Err("Failed to parse inspect_reply".to_string())
+            }
+        }
+        Ok(Err(e)) => Err(format!("Shell recv error: {}", e)),
+        Err(_) => Err("Inspect timeout".to_string()),
+    }
 }
 
 // ─── Memory ──────────────────────────────────────────────────────────

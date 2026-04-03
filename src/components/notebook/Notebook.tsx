@@ -820,6 +820,7 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
                 isFocused={index === focusedIndex}
                 isEditing={index === focusedIndex && editMode}
                 showLineNumbers={showLineNumbers}
+                kernelId={kernelId}
                 onChange={(src) => handleCellChange(index, src)}
                 onExecute={() => handleExecuteCell(index)}
                 onFocus={() => { setFocusedIndex(index); setEditMode(true); }}

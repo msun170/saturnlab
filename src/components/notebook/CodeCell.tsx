@@ -3,7 +3,7 @@ import { EditorView, keymap, placeholder as cmPlaceholder } from '@codemirror/vi
 import { EditorState, Prec } from '@codemirror/state';
 import { python } from '@codemirror/lang-python';
 import { defaultKeymap, indentWithTab } from '@codemirror/commands';
-import { autocompletion } from '@codemirror/autocomplete';
+import { autocompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
 import { basicSetup } from 'codemirror';
 
 interface CodeCellProps {
@@ -13,6 +13,7 @@ interface CodeCellProps {
   isFocused: boolean;
   isEditing: boolean;
   showLineNumbers: boolean;
+  kernelId: string | null;
   onChange: (value: string) => void;
   onExecute: () => void;
   onFocus: () => void;
@@ -26,6 +27,7 @@ export default function CodeCell({
   isFocused,
   isEditing,
   showLineNumbers,
+  kernelId,
   onChange,
   onExecute,
   onFocus,
@@ -35,9 +37,11 @@ export default function CodeCell({
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
   const onExecuteRef = useRef(onExecute);
+  const kernelIdRef = useRef(kernelId);
 
   onChangeRef.current = onChange;
   onExecuteRef.current = onExecute;
+  kernelIdRef.current = kernelId;
 
   useEffect(() => {
     if (!editorRef.current) return;
@@ -96,15 +100,71 @@ export default function CodeCell({
       },
     });
 
+    // Kernel-powered completion source
+    const kernelCompletionSource = async (context: CompletionContext): Promise<CompletionResult | null> => {
+      const kid = kernelIdRef.current;
+      if (!kid) return null;
+      const word = context.matchBefore(/[\w.]+/);
+      if (!word) return null;
+
+      try {
+        const { completeCode } = await import('../../lib/ipc');
+        const result = await completeCode(kid, context.state.doc.toString(), context.pos);
+        if (result.status !== 'ok' || !result.matches?.length) return null;
+        return {
+          from: result.cursor_start,
+          options: result.matches.map((m: string) => ({ label: m })),
+        };
+      } catch {
+        return null;
+      }
+    };
+
+    // Shift+Tab tooltip handler
+    const shiftTabKeymap = keymap.of([{
+      key: 'Shift-Tab',
+      run: (view) => {
+        const kid = kernelIdRef.current;
+        if (!kid) return false;
+        const pos = view.state.selection.main.head;
+        const code = view.state.doc.toString();
+        import('../../lib/ipc').then(async ({ inspectCode }) => {
+          try {
+            const result = await inspectCode(kid, code, pos);
+            if (result.found && result.data?.['text/plain']) {
+              // Show tooltip as a temporary DOM element
+              const tooltip = document.createElement('div');
+              tooltip.className = 'kernel-tooltip';
+              tooltip.textContent = result.data['text/plain'];
+              const coords = view.coordsAtPos(pos);
+              if (coords) {
+                tooltip.style.position = 'fixed';
+                tooltip.style.left = `${coords.left}px`;
+                tooltip.style.top = `${coords.top - 8}px`;
+                tooltip.style.transform = 'translateY(-100%)';
+              }
+              document.body.appendChild(tooltip);
+              setTimeout(() => tooltip.remove(), 5000);
+              // Click anywhere to dismiss
+              const dismiss = () => { tooltip.remove(); document.removeEventListener('click', dismiss); };
+              document.addEventListener('click', dismiss);
+            }
+          } catch { /* ignore */ }
+        });
+        return true;
+      },
+    }]);
+
     const state = EditorState.create({
       doc: source,
       extensions: [
         Prec.highest(shiftEnterKeymap),
+        Prec.high(shiftTabKeymap),
         basicSetup,
         python(),
         jupyterLightTheme,
         keymap.of([indentWithTab, ...defaultKeymap]),
-        autocompletion(),
+        autocompletion({ override: [kernelCompletionSource] }),
         updateListener,
         cmPlaceholder(''),
         EditorView.lineWrapping,
