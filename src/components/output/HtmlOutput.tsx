@@ -11,6 +11,13 @@ export default function HtmlOutput({ html }: HtmlOutputProps) {
   const hasScript = /<script/i.test(html);
 
   // Preview mode: truncate large tables
+  const totalRowCount = useMemo(() => {
+    const trMatches = html.match(/<tr[\s>]/gi);
+    return trMatches?.length ?? 0;
+  }, [html]);
+
+  const isLargeTable = totalRowCount > MAX_TABLE_ROWS + 1;
+
   const { displayHtml, truncatedRows } = useMemo(() => {
     if (expanded || hasScript) return { displayHtml: html, truncatedRows: 0 };
 
@@ -65,9 +72,11 @@ export default function HtmlOutput({ html }: HtmlOutputProps) {
         className="html-output"
         dangerouslySetInnerHTML={{ __html: displayHtml }}
       />
-      {truncatedRows > 0 && (
-        <button className="output-show-more" onClick={() => setExpanded(true)}>
-          ... {truncatedRows} more rows (click to expand)
+      {isLargeTable && (
+        <button className="output-show-more" onClick={() => setExpanded(!expanded)}>
+          {expanded
+            ? 'Collapse table'
+            : `... ${truncatedRows} more rows (click to expand)`}
         </button>
       )}
     </div>
