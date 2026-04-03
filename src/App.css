@@ -1674,6 +1674,12 @@ body {
   font-weight: 600;
 }
 
+.status-bar-outputs {
+  font-family: var(--font-code);
+  font-size: 10px;
+  cursor: help;
+}
+
 .status-bar-filename {
   max-width: 300px;
   overflow: hidden;
