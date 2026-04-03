@@ -1,9 +1,10 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import Notebook from './components/notebook/Notebook';
 import type { NotebookHandle } from './components/notebook/Notebook';
 import MenuBar from './components/toolbar/MenuBar';
 import TabBar from './components/tabs/TabBar';
+import Sidebar from './components/sidebar/Sidebar';
 import ShortcutsModal from './components/toolbar/ShortcutsModal';
 import { useAppStore } from './store';
 import { listKernelspecs, startKernel, stopKernel, readNotebook, writeNotebook } from './lib/ipc';
@@ -16,6 +17,15 @@ function App() {
   const error = useAppStore((s) => s.error);
   const showShortcuts = useAppStore((s) => s.showShortcuts);
   const notebookRef = useRef<NotebookHandle>(null);
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const saved = localStorage.getItem('saturn-sidebar-width');
+    return saved ? parseInt(saved, 10) : 240;
+  });
+
+  const handleSidebarResize = useCallback((width: number) => {
+    setSidebarWidth(width);
+    localStorage.setItem('saturn-sidebar-width', String(width));
+  }, []);
 
   const tab = tabs.find((t) => t.id === activeTabId);
 
@@ -226,11 +236,16 @@ function App() {
         hasKernel={!!tab.kernelId}
       />
 
-      {/* Tab Bar */}
-      <TabBar />
+      {/* Main workspace: sidebar + content */}
+      <div className="app-workspace">
+        <Sidebar width={sidebarWidth} onResize={handleSidebarResize} />
 
-      {/* Toolbar */}
-      <div className="toolbar">
+        <div className="main-content">
+          {/* Tab Bar */}
+          <TabBar />
+
+          {/* Toolbar */}
+          <div className="toolbar">
         <div className="toolbar-group">
           <button onClick={handleSaveFile} className="toolbar-btn" title="Save (Ctrl+S)">💾</button>
         </div>
@@ -295,6 +310,8 @@ function App() {
         onRestartKernel={handleRestartKernel}
         onSave={handleSaveFile}
       />
+        </div>{/* end .main-content */}
+      </div>{/* end .app-workspace */}
 
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
     </div>

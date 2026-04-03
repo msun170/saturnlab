@@ -180,3 +180,15 @@ pub fn write_notebook(
 ) -> Result<(), String> {
     crate::notebook::io::write_notebook(std::path::Path::new(&path), &notebook)
 }
+
+// ─── Filesystem ──────────────────────────────────────────────────────
+
+#[tauri::command]
+pub fn list_directory(path: String) -> Result<Vec<crate::filesystem::FileEntry>, String> {
+    crate::filesystem::list_directory(&path)
+}
+
+#[tauri::command]
+pub fn get_cwd() -> Result<String, String> {
+    crate::filesystem::get_cwd()
+}

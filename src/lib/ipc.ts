@@ -44,3 +44,21 @@ export async function readNotebook(path: string): Promise<Notebook> {
 export async function writeNotebook(path: string, notebook: Notebook): Promise<void> {
   return invoke<void>('write_notebook', { path, notebook });
 }
+
+// ─── Filesystem ──────────────────────────────────────────────────────
+
+export interface FileEntry {
+  name: string;
+  path: string;
+  is_dir: boolean;
+  size: number;
+  modified: number;
+}
+
+export async function listDirectory(path: string): Promise<FileEntry[]> {
+  return invoke<FileEntry[]>('list_directory', { path });
+}
+
+export async function getCwd(): Promise<string> {
+  return invoke<string>('get_cwd');
+}

@@ -28,6 +28,9 @@ pub fn run() {
             // Notebook I/O
             commands::read_notebook,
             commands::write_notebook,
+            // Filesystem
+            commands::list_directory,
+            commands::get_cwd,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
