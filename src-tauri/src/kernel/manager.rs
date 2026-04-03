@@ -1,6 +1,6 @@
 use crate::kernel::discovery::{discover_kernelspecs, KernelSpec};
 use crate::kernel::message::JupyterMessage;
-use crate::kernel::zmq_client::{ConnectionInfo, ZmqClient};
+use crate::kernel::zmq_client::{ConnectionInfo, ShellClient};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -180,9 +180,9 @@ impl KernelManager {
         let session = instance.session_id.clone();
         drop(kernels); // Release the lock
 
-        let mut zmq = ZmqClient::connect(conn).await?;
+        let mut client = ShellClient::connect(conn).await?;
         let msg = JupyterMessage::new("interrupt_request", &session, serde_json::json!({}));
-        zmq.send_control(&msg).await?;
+        client.send_control(&msg).await?;
 
         Ok(())
     }

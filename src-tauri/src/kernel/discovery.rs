@@ -13,6 +13,7 @@ pub struct KernelSpec {
     pub env: HashMap<String, String>,
     /// Path to the kernelspec directory on disk.
     #[serde(skip)]
+    #[allow(dead_code)]
     pub spec_dir: PathBuf,
 }
 

@@ -21,6 +21,7 @@ pub struct ConnectionInfo {
 
 impl ConnectionInfo {
     /// Read connection info from a JSON file.
+    #[allow(dead_code)]
     pub fn from_file(path: &PathBuf) -> Result<Self, String> {
         let contents =
             std::fs::read_to_string(path).map_err(|e| format!("Read connection file: {}", e))?;
@@ -147,84 +148,7 @@ impl IopubListener {
     }
 }
 
-/// For backwards compat — full client with all channels.
-pub struct ZmqClient {
-    pub shell: DealerSocket,
-    pub iopub: SubSocket,
-    pub control: DealerSocket,
-    pub connection: ConnectionInfo,
-}
-
-impl ZmqClient {
-    pub async fn connect(conn: ConnectionInfo) -> Result<Self, String> {
-        let mut shell = DealerSocket::new();
-        shell
-            .connect(&conn.endpoint(conn.shell_port))
-            .await
-            .map_err(|e| format!("Shell connect: {}", e))?;
-
-        let mut iopub = SubSocket::new();
-        iopub
-            .connect(&conn.endpoint(conn.iopub_port))
-            .await
-            .map_err(|e| format!("IOPub connect: {}", e))?;
-        iopub
-            .subscribe("")
-            .await
-            .map_err(|e| format!("IOPub subscribe: {}", e))?;
-
-        let mut control = DealerSocket::new();
-        control
-            .connect(&conn.endpoint(conn.control_port))
-            .await
-            .map_err(|e| format!("Control connect: {}", e))?;
-
-        Ok(Self {
-            shell,
-            iopub,
-            control,
-            connection: conn,
-        })
-    }
-
-    pub async fn send_shell(&mut self, msg: &JupyterMessage) -> Result<(), String> {
-        let frames = msg.to_wire_frames(self.connection.key.as_bytes());
-        let zmq_msg = frames_to_zmq_message(frames);
-        self.shell
-            .send(zmq_msg)
-            .await
-            .map_err(|e| format!("Shell send: {}", e))
-    }
-
-    pub async fn send_control(&mut self, msg: &JupyterMessage) -> Result<(), String> {
-        let frames = msg.to_wire_frames(self.connection.key.as_bytes());
-        let zmq_msg = frames_to_zmq_message(frames);
-        self.control
-            .send(zmq_msg)
-            .await
-            .map_err(|e| format!("Control send: {}", e))
-    }
-
-    pub async fn recv_iopub(&mut self) -> Result<JupyterMessage, String> {
-        let zmq_msg = self
-            .iopub
-            .recv()
-            .await
-            .map_err(|e| format!("IOPub recv: {}", e))?;
-        let frames = zmq_message_to_frames(zmq_msg);
-        JupyterMessage::from_wire_frames(&frames, self.connection.key.as_bytes())
-    }
-
-    pub async fn recv_shell(&mut self) -> Result<JupyterMessage, String> {
-        let zmq_msg = self
-            .shell
-            .recv()
-            .await
-            .map_err(|e| format!("Shell recv: {}", e))?;
-        let frames = zmq_message_to_frames(zmq_msg);
-        JupyterMessage::from_wire_frames(&frames, self.connection.key.as_bytes())
-    }
-}
+// ZmqClient (old all-in-one struct) removed. Use ShellClient + IopubListener instead.
 
 /// Convert our Vec<Vec<u8>> frames into a ZMQ multipart message.
 fn frames_to_zmq_message(frames: Vec<Vec<u8>>) -> zeromq::ZmqMessage {

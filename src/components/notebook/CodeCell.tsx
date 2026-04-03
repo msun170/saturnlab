@@ -122,7 +122,7 @@ export default function CodeCell({
       view.destroy();
       viewRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Only create editor once on mount (source is initial value)
   }, []);
 
   useEffect(() => {

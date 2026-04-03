@@ -68,6 +68,7 @@ pub enum CellSource {
 }
 
 impl CellSource {
+    #[allow(dead_code)]
     pub fn as_string(&self) -> String {
         match self {
             CellSource::String(s) => s.clone(),
@@ -100,6 +101,7 @@ pub struct Output {
 
 impl Notebook {
     /// Create a new empty notebook.
+    #[allow(dead_code)]
     pub fn new(kernel_name: &str, display_name: &str, language: &str) -> Self {
         Self {
             nbformat: 4,
