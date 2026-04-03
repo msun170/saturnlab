@@ -18,6 +18,7 @@
 
   --bg-page: #fff;
   --bg-cell: #f7f7f7;
+  --bg-frame: #fafafa;
   --bg-toolbar: #f8f8f8;
   --bg-output: #fff;
   --bg-stderr: #fdd;
@@ -51,14 +52,16 @@ body {
   font-size: 14px;
   line-height: 1.42857;
   color: var(--text-color);
-  background-color: var(--bg-page);
+  background-color: var(--bg-frame);
 }
 
 .app {
   max-width: 960px;
   margin: 0 auto;
-  padding: 0 12px 64px;
+  padding: 0 24px 64px;
   min-height: 100vh;
+  background-color: var(--bg-page);
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.08);
 }
 
 /* ─── Menu Bar ───────────────────────────────────────── */
@@ -70,7 +73,9 @@ body {
   padding: 4px 8px;
   background-color: var(--bg-page);
   border-bottom: 1px solid var(--border-color);
-  margin: 0 -12px;
+  margin: 0 -24px;
+  padding-left: 24px;
+  padding-right: 24px;
   font-size: 13px;
 }
 
@@ -156,8 +161,8 @@ body {
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 4px 8px;
-  margin: 0 -12px 8px;
+  padding: 4px 24px;
+  margin: 0 -24px 8px;
   background-color: var(--bg-toolbar);
   border-bottom: 1px solid var(--border-color);
   min-height: 32px;
@@ -419,13 +424,14 @@ body {
   border: 1px solid var(--border-color);
   border-radius: 2px;
   line-height: 1.21429em;
+  overflow: hidden;
 }
 
 .code-editor {
   min-height: 20px;
 }
 
-/* CodeMirror overrides */
+/* CodeMirror overrides: all same background, no internal borders */
 .code-editor .cm-editor {
   font-family: var(--font-code);
   font-size: var(--font-size-code);
@@ -444,6 +450,15 @@ body {
 .code-editor .cm-editor .cm-gutters {
   background-color: var(--bg-cell);
   border-right: none;
+  color: #999;
+}
+
+.code-editor .cm-editor .cm-activeLineGutter {
+  background-color: var(--bg-cell);
+}
+
+.code-editor .cm-editor .cm-activeLine {
+  background-color: transparent;
 }
 
 .code-editor .cm-scroller {
