@@ -53,13 +53,14 @@ describe('tabStore', () => {
     expect(state.tabs[0].fileName).toBe('second.ipynb');
   });
 
-  it('removeTab on last tab creates a new empty tab', () => {
+  it('removeTab on last tab creates a launcher tab', () => {
     const id = useAppStore.getState().tabs[0].id;
     useAppStore.getState().removeTab(id);
 
     const state = useAppStore.getState();
     expect(state.tabs.length).toBe(1);
-    expect(state.tabs[0].fileName).toBe('Untitled.ipynb');
+    expect(state.tabs[0].fileName).toBe('Launcher');
+    expect(state.tabs[0].isLauncher).toBe(true);
     expect(state.activeTabId).toBeTruthy();
   });
 
@@ -110,7 +111,7 @@ describe('tabStore', () => {
     expect(tab?.kernelStatus).toBe('idle');
     expect(tab?.isDirty).toBe(true);
     // Other fields unchanged
-    expect(tab?.fileName).toBe('Untitled.ipynb');
+    expect(tab?.fileName).toBe('Launcher');
   });
 
   it('getActiveTab returns the correct tab', () => {

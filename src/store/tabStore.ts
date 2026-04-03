@@ -115,8 +115,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set((state) => {
       const remaining = state.tabs.filter((t) => t.id !== id);
       if (remaining.length === 0) {
-        // Never have zero tabs, create a new empty one
-        const newTab = createDefaultTab();
+        // Never have zero tabs, open a launcher
+        const newTab = createDefaultTab({ fileName: 'Launcher', isLauncher: true });
         return {
           tabs: [newTab],
           activeTabId: newTab.id,
