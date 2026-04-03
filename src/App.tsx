@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import Notebook from './components/notebook/Notebook';
 import type { NotebookHandle } from './components/notebook/Notebook';
+import Launcher from './components/tabs/Launcher';
 import MenuBar from './components/toolbar/MenuBar';
 import TabBar from './components/tabs/TabBar';
 import Sidebar from './components/sidebar/Sidebar';
@@ -166,7 +167,7 @@ function App() {
   }, [tab?.id, tab?.notebook, updateActiveTab]);
 
   const handleNewNotebook = useCallback(() => {
-    addTab();
+    addTab({ fileName: 'Launcher', isLauncher: true });
   }, []);
 
   const handleRestartKernel = useCallback(async () => {
@@ -295,23 +296,27 @@ function App() {
 
       {error && <div className="error-banner">{error}</div>}
 
-      <Notebook
-        key={tab.id}
-        ref={notebookRef}
-        notebook={tab.notebook}
-        kernelId={tab.kernelId}
-        onNotebookChange={(nb) => updateActiveTab({ notebook: nb })}
-        onDirty={() => updateActiveTab({ isDirty: true })}
-        onFocusedCellChange={(type) => updateActiveTab({ focusedCellType: type })}
-        onEditModeChange={(mode) => updateActiveTab({ editMode: mode })}
-        onInterruptKernel={() => {
-          if (tab.kernelId) {
-            import('./lib/ipc').then(({ interruptKernel }) => interruptKernel(tab.kernelId!));
-          }
-        }}
-        onRestartKernel={handleRestartKernel}
-        onSave={handleSaveFile}
-      />
+      {tab.isLauncher ? (
+        <Launcher />
+      ) : (
+        <Notebook
+          key={tab.id}
+          ref={notebookRef}
+          notebook={tab.notebook}
+          kernelId={tab.kernelId}
+          onNotebookChange={(nb) => updateActiveTab({ notebook: nb })}
+          onDirty={() => updateActiveTab({ isDirty: true })}
+          onFocusedCellChange={(type) => updateActiveTab({ focusedCellType: type })}
+          onEditModeChange={(mode) => updateActiveTab({ editMode: mode })}
+          onInterruptKernel={() => {
+            if (tab.kernelId) {
+              import('./lib/ipc').then(({ interruptKernel }) => interruptKernel(tab.kernelId!));
+            }
+          }}
+          onRestartKernel={handleRestartKernel}
+          onSave={handleSaveFile}
+        />
+      )}
         </div>{/* end .main-content */}
       </div>{/* end .app-workspace */}
 

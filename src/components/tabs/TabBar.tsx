@@ -21,7 +21,7 @@ export default function TabBar() {
   };
 
   const handleNewTab = () => {
-    useAppStore.getState().addTab();
+    useAppStore.getState().addTab({ fileName: 'Launcher', isLauncher: true });
   };
 
   const handleSwitchTab = (tabId: string) => {
@@ -39,7 +39,7 @@ export default function TabBar() {
             onMouseDown={(e) => handleMiddleClick(e, tab.id)}
             title={tab.filePath ?? tab.fileName}
           >
-            <span className="saturn-tab-icon">&#128209;</span>
+            <span className="saturn-tab-icon">{tab.isLauncher ? '&#127968;' : '&#128209;'}</span>
             <span className="saturn-tab-label">{tab.fileName}</span>
             {tab.isDirty && <span className="saturn-tab-dirty">&bull;</span>}
             <button

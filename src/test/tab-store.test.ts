@@ -23,7 +23,7 @@ describe('tabStore', () => {
   it('first tab has default values', () => {
     const tab = useAppStore.getState().tabs[0];
     expect(tab.filePath).toBeNull();
-    expect(tab.fileName).toBe('Untitled.ipynb');
+    expect(tab.fileName).toBe('Launcher');
     expect(tab.kernelId).toBeNull();
     expect(tab.kernelStatus).toBe('disconnected');
     expect(tab.suspensionLayer).toBe('active');

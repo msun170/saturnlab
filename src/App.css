@@ -1171,6 +1171,135 @@ body {
 .toc-h3 { font-weight: 500; }
 .toc-h4, .toc-h5, .toc-h6 { font-weight: 400; color: var(--text-muted); }
 
+/* ─── Launcher (from JupyterLab launcher/style/base.css) ───── */
+
+.launcher {
+  flex: 1;
+  display: flex;
+  overflow-y: auto;
+  background: var(--bg-page);
+}
+
+.launcher-body {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  padding: 24px;
+}
+
+.launcher-content {
+  width: 85%;
+  max-width: 800px;
+}
+
+.launcher-section {
+  padding-bottom: 16px;
+}
+
+.launcher-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  margin-left: 5px;
+}
+
+.launcher-section-icon {
+  font-size: 18px;
+}
+
+.launcher-section-title {
+  font-size: 16px;
+  font-weight: 400;
+  font-family: var(--font-ui);
+  color: var(--text-color);
+  margin: 0;
+}
+
+.launcher-card-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+}
+
+.launcher-card {
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  width: 120px;
+  min-height: 120px;
+  margin: 8px;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  background: var(--bg-page);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  transition: box-shadow 0.2s;
+  border-radius: 4px;
+  outline: none;
+}
+
+.launcher-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background: var(--bg-cell);
+}
+
+.launcher-card:focus {
+  border-color: var(--color-command);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.launcher-card:active {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.launcher-card-icon {
+  width: 100%;
+  height: 80px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.launcher-card-kernel-icon {
+  font-size: 48px;
+}
+
+.launcher-card-other-icon {
+  font-size: 36px;
+}
+
+.launcher-card-label {
+  width: 100%;
+  min-height: 32px;
+  padding: 0 4px 4px;
+  overflow: hidden;
+}
+
+.launcher-card-label p {
+  text-align: center;
+  color: var(--text-color);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  line-height: 1.2;
+  margin: 0;
+  word-break: break-word;
+}
+
+.launcher-no-kernels {
+  padding: 16px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.launcher-no-kernels code {
+  background: #eff0f1;
+  padding: 1px 5px;
+  border-radius: 2px;
+  font-size: 12px;
+}
+
 /* ─── Status Bar (from JupyterLab statusbar/style/base.css) ── */
 
 .status-bar {

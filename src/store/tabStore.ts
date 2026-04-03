@@ -21,6 +21,8 @@ export interface TabState {
   focusedCellType: string;
   /** Non-reactive map: msg_id -> cell_id. Survives tab switches. */
   pendingExecutions: Map<string, string>;
+  /** True when this tab shows the Launcher instead of a notebook. */
+  isLauncher: boolean;
 }
 
 function createEmptyNotebook(): Notebook {
@@ -61,6 +63,7 @@ function createDefaultTab(overrides?: Partial<TabState>): TabState {
     isDirty: false,
     focusedCellType: 'code',
     pendingExecutions: new Map(),
+    isLauncher: false,
     ...overrides,
   };
 }
@@ -88,7 +91,7 @@ interface AppStore {
   setShowShortcuts: (show: boolean) => void;
 }
 
-const initialTab = createDefaultTab();
+const initialTab = createDefaultTab({ fileName: 'Launcher', isLauncher: true });
 
 export const useAppStore = create<AppStore>((set, get) => ({
   // Initial state: one empty tab, active
