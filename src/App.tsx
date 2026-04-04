@@ -10,6 +10,7 @@ import Sidebar from './components/sidebar/Sidebar';
 import StatusBar from './components/statusbar/StatusBar';
 import ShortcutsModal from './components/toolbar/ShortcutsModal';
 import SettingsPanel from './components/settings/SettingsPanel';
+import TerminalPanel from './components/terminal/Terminal';
 import CommandPalette from './components/toolbar/CommandPalette';
 import type { Command } from './components/toolbar/CommandPalette';
 import { useSuspension } from './hooks/useSuspension';
@@ -26,6 +27,7 @@ function App() {
   const showShortcuts = useAppStore((s) => s.showShortcuts);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showTerminal, setShowTerminal] = useState(false);
   const editorFontSize = useAppStore((s) => s.appSettings.editor_font_size);
 
   // Apply settings as CSS variables so CodeMirror picks them up
@@ -416,6 +418,7 @@ function App() {
           notebookRef.current?.runAll();
         }}
         onToggleLineNumbers={() => notebookRef.current?.toggleLineNumbers()}
+        onToggleTerminal={() => setShowTerminal((v) => !v)}
         onShowShortcuts={() => setShowShortcuts(true)}
         onShowSettings={() => setShowSettings(true)}
         fileName={tab.fileName}
@@ -515,6 +518,7 @@ function App() {
           onSave={handleSaveFile}
         />
       )}
+          <TerminalPanel visible={showTerminal} onClose={() => setShowTerminal(false)} />
         </div>{/* end .main-content */}
       </div>{/* end .app-workspace */}
 

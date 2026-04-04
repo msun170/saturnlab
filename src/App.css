@@ -1995,6 +1995,45 @@ body {
   text-overflow: ellipsis;
 }
 
+/* ─── Terminal Panel ──────────────────────────────────── */
+
+.terminal-panel {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border-color);
+  height: 250px;
+  flex-shrink: 0;
+}
+
+.terminal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 12px;
+  background: #252526;
+  color: #d4d4d4;
+  font-size: 12px;
+  font-family: var(--font-ui);
+}
+
+.terminal-close {
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.terminal-close:hover {
+  color: #fff;
+}
+
+.terminal-container {
+  flex: 1;
+  background: #1e1e1e;
+  overflow: hidden;
+}
+
 /* ─── Settings Panel ─────────────────────────────────── */
 
 .settings-panel {

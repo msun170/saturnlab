@@ -205,6 +205,34 @@ pub fn write_text_file(path: String, content: String) -> Result<(), String> {
     std::fs::write(&path, &content).map_err(|e| format!("Write failed: {}", e))
 }
 
+// ─── Terminal ────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub fn spawn_terminal(
+    app: tauri::AppHandle,
+    manager: State<'_, crate::terminal::TerminalManager>,
+    id: String,
+) -> Result<(), String> {
+    manager.spawn(&id, app)
+}
+
+#[tauri::command]
+pub fn write_terminal(
+    manager: State<'_, crate::terminal::TerminalManager>,
+    id: String,
+    data: String,
+) -> Result<(), String> {
+    manager.write(&id, &data)
+}
+
+#[tauri::command]
+pub fn kill_terminal(
+    manager: State<'_, crate::terminal::TerminalManager>,
+    id: String,
+) -> Result<(), String> {
+    manager.kill(&id)
+}
+
 // ─── Settings ────────────────────────────────────────────────────────
 
 #[tauri::command]

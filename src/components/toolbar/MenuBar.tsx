@@ -91,6 +91,7 @@ interface MenuBarProps {
   onRestartAndClear: () => void;
   onRestartAndRunAll: () => void;
   onToggleLineNumbers: () => void;
+  onToggleTerminal: () => void;
   onShowShortcuts: () => void;
   onShowSettings: () => void;
   fileName: string;
@@ -123,6 +124,7 @@ export default function MenuBar(props: MenuBarProps) {
 
   const viewItems: MenuItem[] = [
     { label: 'Toggle Line Numbers', action: props.onToggleLineNumbers, shortcut: 'L' },
+    { label: 'Toggle Terminal', action: props.onToggleTerminal, shortcut: 'Ctrl+`' },
   ];
 
   const insertItems: MenuItem[] = [

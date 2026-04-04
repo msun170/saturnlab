@@ -31,6 +31,7 @@ function createMockProps() {
     onToggleLineNumbers: vi.fn(),
     onShowShortcuts: vi.fn(),
     onShowSettings: vi.fn(),
+    onToggleTerminal: vi.fn(),
     fileName: 'test.ipynb',
     hasKernel: true,
   };
