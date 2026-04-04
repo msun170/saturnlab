@@ -1494,7 +1494,7 @@ body {
 .collapse-toggle {
   position: absolute;
   left: 8px;
-  top: 16px;
+  top: 22px;
   z-index: 5;
   background: none;
   border: none;

@@ -82,6 +82,19 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [editMode, setEditModeInternal] = useState(false);
 
+  // Sync cells when notebook prop changes externally (e.g. Ctrl+R restore)
+  const notebookCellCount = notebook.cells.length;
+  const notebookFirstSource = notebook.cells[0]?.source;
+  useEffect(() => {
+    // Only reset if the notebook content actually changed (not from our own sync)
+    const currentFirst = cells[0]?.source ?? '';
+    const incomingFirst = Array.isArray(notebookFirstSource) ? notebookFirstSource.join('') : (notebookFirstSource ?? '');
+    if (cells.length !== notebookCellCount || (notebookCellCount > 0 && currentFirst !== incomingFirst)) {
+      setCells(notebook.cells.map(cellFromNotebook));
+      setFocusedIndex(0);
+    }
+  }, [notebookCellCount, notebookFirstSource]);
+
   // Wrap setEditMode to notify parent
   const setEditMode = useCallback((mode: boolean) => {
     setEditModeInternal(mode);
@@ -683,22 +696,7 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
           e.preventDefault();
           changeCellType(focusedIndex, 'code');
           break;
-        case 'x':
-          e.preventDefault();
-          cutCell(focusedIndex);
-          break;
-        case 'c':
-          e.preventDefault();
-          copyCell(focusedIndex);
-          break;
-        case 'v':
-          e.preventDefault();
-          pasteCell(focusedIndex);
-          break;
-        case 'z':
-          e.preventDefault();
-          undoDelete();
-          break;
+        // x, c, v, z handled via Ctrl+ above (not bare keys)
         case 's':
           e.preventDefault();
           onSave?.();
