@@ -312,6 +312,7 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
   // ─── Cell Operations ───────────────────────────────────────────
 
   const addCell = useCallback((index: number, type: 'code' | 'markdown') => {
+    pushUndo();
     const newCell: CellState = {
       id: generateCellId(),
       cell_type: type,
@@ -331,23 +332,29 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
     setFocusedIndex(index + 1);
   }, []);
 
-  const [deletedCells, setDeletedCells] = useState<{ cell: CellState; index: number }[]>([]);
+  // Full undo stack: saves entire cells array before each cell operation
+  const cellHistoryRef = useRef<CellState[][]>([]);
+  const MAX_UNDO = 50;
+
+  const pushUndo = useCallback(() => {
+    cellHistoryRef.current = [...cellHistoryRef.current.slice(-(MAX_UNDO - 1)), [...cells]];
+  }, [cells]);
 
   const deleteCell = useCallback(
     (index: number) => {
-      if (cells.length <= 1) return; // Don't delete the last cell
-      const cell = cells[index];
-      setDeletedCells((prev) => [...prev, { cell, index }]);
+      if (cells.length <= 1) return;
+      pushUndo();
       setCells((prev) => prev.filter((_, i) => i !== index));
       setFocusedIndex(Math.min(index, cells.length - 2));
     },
-    [cells],
+    [cells, pushUndo],
   );
 
   const moveCell = useCallback(
     (index: number, direction: 'up' | 'down') => {
       const newIndex = direction === 'up' ? index - 1 : index + 1;
       if (newIndex < 0 || newIndex >= cells.length) return;
+      pushUndo();
       setCells((prev) => {
         const next = [...prev];
         [next[index], next[newIndex]] = [next[newIndex], next[index]];
@@ -359,6 +366,7 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
   );
 
   const addCellAbove = useCallback((index: number, type: 'code' | 'markdown') => {
+    pushUndo();
     const newCell: CellState = {
       id: generateCellId(),
       cell_type: type,
@@ -416,6 +424,7 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
   }, [cells]);
 
   const changeCellType = useCallback((index: number, newType: 'code' | 'markdown') => {
+    pushUndo();
     setCells((prev) =>
       prev.map((c, i) =>
         i === index ? { ...c, cell_type: newType, outputs: [], execution_count: null } : c,
@@ -430,13 +439,13 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
   const cutCell = useCallback(
     (index: number) => {
       if (cells.length <= 1) return;
+      pushUndo();
       const cell = cells[index];
       setClipboard(cell);
-      setDeletedCells((prev) => [...prev, { cell, index }]);
       setCells((prev) => prev.filter((_, i) => i !== index));
       setFocusedIndex(Math.min(index, cells.length - 2));
     },
-    [cells],
+    [cells, pushUndo],
   );
 
   const copyCell = useCallback(
@@ -449,6 +458,7 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
   const pasteCell = useCallback(
     (index: number) => {
       if (!clipboard) return;
+      pushUndo();
       const pasted = { ...clipboard, id: generateCellId() };
       setCells((prev) => {
         const next = [...prev];
@@ -457,20 +467,14 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
       });
       setFocusedIndex(index + 1);
     },
-    [clipboard],
+    [clipboard, pushUndo],
   );
 
   const undoDelete = useCallback(() => {
-    if (deletedCells.length === 0) return;
-    const last = deletedCells[deletedCells.length - 1];
-    setCells((prev) => {
-      const next = [...prev];
-      next.splice(last.index, 0, last.cell);
-      return next;
-    });
-    setDeletedCells((prev) => prev.slice(0, -1));
-    setFocusedIndex(last.index);
-  }, [deletedCells]);
+    if (cellHistoryRef.current.length === 0) return;
+    const previousCells = cellHistoryRef.current.pop()!;
+    setCells(previousCells);
+  }, []);
 
   // ─── Run All ───────────────────────────────────────────────────
 
@@ -621,7 +625,7 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
         import('../../lib/ipc').then(({ interruptKernel }) => interruptKernel(kernelId));
       }
     },
-  }), [focusedIndex, cells, kernelId, clipboard, deletedCells, handleExecuteCell, runAll, runCellRange, addCell, addCellAbove, deleteCell, moveCell, changeCellType, cutCell, copyCell, pasteCell, undoDelete, clearAllOutputs, toggleLineNumbers]);
+  }), [focusedIndex, cells, kernelId, clipboard, handleExecuteCell, runAll, runCellRange, addCell, addCellAbove, deleteCell, moveCell, changeCellType, cutCell, copyCell, pasteCell, undoDelete, clearAllOutputs, toggleLineNumbers]);
 
   // ─── Keyboard shortcuts (command mode) ─────────────────────────
   // Matches Jupyter keyboardmanager.js including d,d / i,i / 0,0 double-press
