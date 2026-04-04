@@ -540,8 +540,6 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
 
   const [showLineNumbers, setShowLineNumbers] = useState(true);
   const [showSearch, setShowSearch] = useState(false);
-  const [_dragIndex, setDragIndex] = useState<number | null>(null);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   const handleSearch = useCallback((query: string, matchCase: boolean) => {
     const results: { cellIndex: number; lineNumber: number; text: string }[] = [];
@@ -617,6 +615,20 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       const target = e.target as HTMLElement;
+
+      // Ctrl+Z: always pass through to the focused cell's editor for undo
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        // Find the focused cell's CodeMirror editor and dispatch undo
+        const cellContainers = document.querySelectorAll('.cell-container');
+        const focusedCell = cellContainers[focusedIndex];
+        const editor = focusedCell?.querySelector('.cm-editor .cm-content') as HTMLElement | null;
+        if (editor) {
+          editor.focus();
+          // Let the browser/CodeMirror handle Ctrl+Z natively
+        }
+        return;
+      }
+
       if (target.closest('.cm-editor') || target.tagName === 'TEXTAREA' || target.tagName === 'INPUT') {
         return;
       }
@@ -686,10 +698,6 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
           pasteCell(focusedIndex);
           break;
         case 'z':
-          if (e.ctrlKey || e.metaKey) {
-            // Ctrl+Z: don't intercept, let browser handle undo
-            return;
-          }
           e.preventDefault();
           undoDelete();
           break;
@@ -768,42 +776,8 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
         return (
         <div
           key={cell.id}
-          className={`cell-container ${index === highlightCellIndex ? 'cell-highlighted' : ''} ${dragOverIndex === index ? 'cell-drag-over' : ''}`}
-          onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverIndex(index); }}
-          onDragLeave={() => setDragOverIndex(null)}
-          onDrop={(e) => {
-            e.preventDefault();
-            const fromIdx = parseInt(e.dataTransfer.getData('text/plain'), 10);
-            if (!isNaN(fromIdx) && fromIdx !== index) {
-              setCells((prev) => {
-                const next = [...prev];
-                const [moved] = next.splice(fromIdx, 1);
-                next.splice(index, 0, moved);
-                return next;
-              });
-              setFocusedIndex(index);
-              onDirty?.();
-            }
-            setDragIndex(null);
-            setDragOverIndex(null);
-          }}
+          className={`cell-container ${index === highlightCellIndex ? 'cell-highlighted' : ''}`}
         >
-          {/* Drag handle - only this element is draggable, not the whole cell */}
-          <div
-            className="cell-drag-handle"
-            draggable="true"
-            onDragStart={(e) => {
-              e.stopPropagation();
-              e.dataTransfer.setData('text/plain', String(index));
-              e.dataTransfer.effectAllowed = 'move';
-              e.dataTransfer.dropEffect = 'move';
-              setDragIndex(index);
-            }}
-            onDragEnd={() => { setDragIndex(null); setDragOverIndex(null); }}
-            title="Drag to reorder"
-          >
-            &#x283F;
-          </div>
           {/* Highlight dismiss button */}
           {index === highlightCellIndex && (
             <button className="cell-highlight-dismiss" onClick={clearHighlight} title="Dismiss">x</button>

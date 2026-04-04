@@ -69,6 +69,21 @@ function App() {
     fetchSpecs();
   }, []);
 
+  // Restore notebook data for tabs loaded from localStorage (Ctrl+R recovery)
+  useEffect(() => {
+    const store = useAppStore.getState();
+    for (const tab of store.tabs) {
+      if (tab.filePath && tab.notebook.cells.length <= 1 && !tab.isLauncher) {
+        // Tab has a filePath but empty notebook - load it
+        readNotebook(tab.filePath).then((nb) => {
+          useAppStore.getState().updateTab(tab.id, { notebook: nb });
+        }).catch(() => {
+          // File might not exist anymore, keep the empty notebook
+        });
+      }
+    }
+  }, []);
+
   // ─── Helpers ───────────────────────────────────────────────────
 
   const updateActiveTab = useCallback(

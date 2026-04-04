@@ -173,10 +173,17 @@ export default function CodeCell({
           override: [kernelCompletionSource],
           activateOnTyping: true,
         }),
-        keymap.of([{
+        // Tab: accept completion if popup open, otherwise insert indent
+        Prec.highest(keymap.of([{
           key: 'Tab',
-          run: acceptCompletion,
-        }]),
+          run: (view) => {
+            // Try to accept completion first
+            if (acceptCompletion(view)) return true;
+            // Otherwise insert 4 spaces (Python indent)
+            view.dispatch(view.state.replaceSelection('    '));
+            return true;
+          },
+        }])),
         updateListener,
         cmPlaceholder(''),
         EditorView.lineWrapping,

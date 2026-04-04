@@ -1493,18 +1493,19 @@ body {
 
 .collapse-toggle {
   position: absolute;
-  left: calc(var(--prompt-width) + 8px);
-  top: 12px;
+  left: 6px;
+  top: 6px;
   z-index: 5;
   background: var(--bg-page);
   border: 1px solid var(--border-color);
   cursor: pointer;
   font-size: 9px;
   color: var(--text-muted);
-  padding: 1px 3px;
+  padding: 2px 4px;
   border-radius: 2px;
   opacity: 0;
   transition: opacity 0.15s;
+  line-height: 1;
 }
 
 .markdown-cell-wrapper:hover .collapse-toggle {

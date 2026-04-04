@@ -166,3 +166,37 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setShowShortcuts: (show) => set({ showShortcuts: show }),
   setLastAutosaveTime: (time) => set({ lastAutosaveTime: time }),
 }));
+
+// Persist open tab file paths to localStorage for Ctrl+R reload recovery
+useAppStore.subscribe((state) => {
+  const tabInfo = state.tabs
+    .filter((t) => t.filePath && !t.isLauncher)
+    .map((t) => ({ filePath: t.filePath, fileName: t.fileName }));
+  const activeFilePath = state.tabs.find((t) => t.id === state.activeTabId)?.filePath ?? null;
+  localStorage.setItem('saturn-open-tabs', JSON.stringify({ tabInfo, activeFilePath }));
+});
+
+// On startup, restore tabs from localStorage
+try {
+  const saved = localStorage.getItem('saturn-open-tabs');
+  if (saved) {
+    const { tabInfo, activeFilePath } = JSON.parse(saved) as {
+      tabInfo: { filePath: string; fileName: string }[];
+      activeFilePath: string | null;
+    };
+    if (tabInfo.length > 0) {
+      // Replace the initial launcher tab with saved tabs
+      // Notebooks will be loaded async in App.tsx
+      const restoredTabs = tabInfo.map((info) =>
+        createDefaultTab({ filePath: info.filePath, fileName: info.fileName }),
+      );
+      const activeTab = activeFilePath
+        ? restoredTabs.find((t) => t.filePath === activeFilePath)
+        : restoredTabs[0];
+      useAppStore.setState({
+        tabs: restoredTabs,
+        activeTabId: activeTab?.id ?? restoredTabs[0].id,
+      });
+    }
+  }
+} catch { /* ignore localStorage errors */ }
