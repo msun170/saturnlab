@@ -485,6 +485,11 @@ function App() {
 
       {tab.isLauncher ? (
         <Launcher />
+      ) : tab.isTerminal ? (
+        <TerminalPanel visible={true} onClose={() => {
+          // Close the terminal tab and open a launcher
+          useAppStore.getState().removeTab(tab.id);
+        }} />
       ) : (tab.suspensionLayer === 'layerA' || tab.suspensionLayer === 'layerC') ? (
         <SuspendedPlaceholder
           tab={tab}

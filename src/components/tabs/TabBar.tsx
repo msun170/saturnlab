@@ -63,7 +63,7 @@ export default function TabBar() {
             }
           >
             <span className="saturn-tab-icon">
-              {tab.isLauncher ? '+' : tab.suspensionLayer === 'layerC' ? '\u23F8' : tab.suspensionLayer === 'layerA' ? '\u263E' : '\u{25A3}'}
+              {tab.isLauncher ? '+' : tab.isTerminal ? '$' : tab.suspensionLayer === 'layerC' ? '\u23F8' : tab.suspensionLayer === 'layerA' ? '\u263E' : '\u{25A3}'}
             </span>
             <span className="saturn-tab-label">{tab.fileName}</span>
             {tab.isDirty && <span className="saturn-tab-dirty">&bull;</span>}

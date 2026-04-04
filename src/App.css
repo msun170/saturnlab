@@ -2001,8 +2001,8 @@ body {
   display: flex;
   flex-direction: column;
   border-top: 1px solid var(--border-color);
-  height: 250px;
-  flex-shrink: 0;
+  flex: 1;
+  min-height: 200px;
 }
 
 .terminal-header {

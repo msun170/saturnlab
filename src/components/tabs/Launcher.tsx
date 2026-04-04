@@ -99,7 +99,30 @@ export default function Launcher() {
                 role="button"
                 tabIndex={0}
                 onClick={() => {
-                  // TODO: Text Editor not yet implemented (Step 5.5)
+                  const store = useAppStore.getState();
+                  const activeTab = store.getActiveTab();
+                  if (activeTab) {
+                    store.updateTab(activeTab.id, {
+                      fileName: 'Terminal',
+                      isLauncher: false,
+                      isTerminal: true,
+                    });
+                  }
+                }}
+              >
+                <div className="launcher-card-icon">
+                  <span className="launcher-card-other-icon" style={{ fontFamily: 'monospace', fontSize: '32px', color: '#333' }}>$_</span>
+                </div>
+                <div className="launcher-card-label">
+                  <p>Terminal</p>
+                </div>
+              </div>
+              <div
+                className="launcher-card"
+                role="button"
+                tabIndex={0}
+                onClick={() => {
+                  // Text Editor not yet implemented
                 }}
               >
                 <div className="launcher-card-icon">
