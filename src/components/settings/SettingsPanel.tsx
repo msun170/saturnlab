@@ -3,13 +3,15 @@ import { getSettings, saveSettings } from '../../lib/ipc';
 import type { AppSettings } from '../../lib/ipc';
 
 /** Number input that lets the user freely type (including empty) and validates on save. */
-function NumInput({ value, onChange, min, max, unit }: {
+function NumInput({ value, onChange, min, max, unit, onValidChange }: {
   value: number; onChange: (v: number) => void; min: number; max: number; unit: string;
+  onValidChange: (isValid: boolean) => void;
 }) {
   const [raw, setRaw] = useState(String(value));
 
-  // Sync if external value changes
   useEffect(() => { setRaw(String(value)); }, [value]);
+
+  const isInvalid = raw === '' || parseInt(raw, 10) < min || parseInt(raw, 10) > max;
 
   return (
     <div className="settings-input-group">
@@ -17,20 +19,19 @@ function NumInput({ value, onChange, min, max, unit }: {
         type="text"
         inputMode="numeric"
         value={raw}
+        className={isInvalid ? 'settings-input-error' : ''}
         onChange={(e) => {
           const v = e.target.value;
-          // Allow empty or digits only
           if (v === '' || /^\d+$/.test(v)) {
             setRaw(v);
             const num = parseInt(v, 10);
-            if (!isNaN(num)) onChange(num);
+            if (!isNaN(num) && num >= min && num <= max) {
+              onChange(num);
+              onValidChange(true);
+            } else {
+              onValidChange(false);
+            }
           }
-        }}
-        onBlur={() => {
-          // On blur, clamp to valid range
-          const num = parseInt(raw, 10);
-          if (isNaN(num) || num < min) { setRaw(String(min)); onChange(min); }
-          else if (num > max) { setRaw(String(max)); onChange(max); }
         }}
       />
       <span>{unit}</span>
@@ -46,6 +47,16 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [invalidFields, setInvalidFields] = useState(new Set<string>());
+
+  const markField = (field: string, isValid: boolean) => {
+    setInvalidFields((prev) => {
+      const next = new Set(prev);
+      if (isValid) next.delete(field);
+      else next.add(field);
+      return next;
+    });
+  };
 
   useEffect(() => {
     getSettings().then(setSettings).catch(() => {});
@@ -54,10 +65,8 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
   const handleSave = async () => {
     if (!settings) return;
 
-    // Validate: no zero or negative values
-    if (settings.layer_b_delay_seconds < 1 || settings.layer_a_delay_seconds < 1 ||
-        settings.autosave_interval_seconds < 1 || settings.editor_font_size < 1) {
-      setSaveError('All values must be greater than 0');
+    if (invalidFields.size > 0) {
+      setSaveError('Fix invalid values before saving (check highlighted fields)');
       setTimeout(() => setSaveError(null), 3000);
       return;
     }
@@ -116,13 +125,13 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
             <div className="settings-row">
               <label>Background suspension delay</label>
               <NumInput value={settings.layer_b_delay_seconds} min={10} max={300} unit="seconds"
-                onChange={(v) => update({ layer_b_delay_seconds: v })} />
+                onChange={(v) => update({ layer_b_delay_seconds: v })} onValidChange={(ok) => markField('layerB', ok)} />
             </div>
 
             <div className="settings-row">
               <label>UI suspension delay</label>
               <NumInput value={settings.layer_a_delay_seconds} min={60} max={3600} unit="seconds"
-                onChange={(v) => update({ layer_a_delay_seconds: v })} />
+                onChange={(v) => update({ layer_a_delay_seconds: v })} onValidChange={(ok) => markField('layerA', ok)} />
             </div>
           </div>
 
@@ -142,13 +151,13 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
             <div className="settings-row">
               <label>Font size</label>
               <NumInput value={settings.editor_font_size} min={8} max={32} unit="px"
-                onChange={(v) => update({ editor_font_size: v })} />
+                onChange={(v) => update({ editor_font_size: v })} onValidChange={(ok) => markField('fontSize', ok)} />
             </div>
 
             <div className="settings-row">
               <label>Auto-save interval</label>
               <NumInput value={settings.autosave_interval_seconds} min={5} max={600} unit="seconds"
-                onChange={(v) => update({ autosave_interval_seconds: v })} />
+                onChange={(v) => update({ autosave_interval_seconds: v })} onValidChange={(ok) => markField('autosave', ok)} />
             </div>
           </div>
         </div>

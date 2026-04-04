@@ -2112,6 +2112,11 @@ body {
   margin-right: auto;
 }
 
+.settings-input-error {
+  border-color: #e53935 !important;
+  background-color: #fff5f5 !important;
+}
+
 .settings-cancel-btn {
   padding: 6px 16px;
   font-size: 13px;
