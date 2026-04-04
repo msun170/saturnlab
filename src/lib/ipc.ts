@@ -96,3 +96,23 @@ export async function inspectCode(
 ): Promise<{ found: boolean; data: Record<string, string> }> {
   return invoke('inspect_code', { kernelId, code, cursorPos });
 }
+
+// ─── Settings ────────────────────────────────────────────────────────
+
+export interface AppSettings {
+  kernel_auto_stop_minutes: number | null;
+  layer_b_delay_seconds: number;
+  layer_a_delay_seconds: number;
+  autosave_interval_seconds: number;
+  show_line_numbers: boolean;
+  theme: string;
+  editor_font_size: number;
+}
+
+export async function getSettings(): Promise<AppSettings> {
+  return invoke<AppSettings>('get_settings');
+}
+
+export async function saveSettings(settings: AppSettings): Promise<void> {
+  return invoke<void>('save_settings', { settings });
+}

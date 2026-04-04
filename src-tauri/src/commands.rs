@@ -200,6 +200,18 @@ pub fn rename_file(old_path: String, new_path: String) -> Result<(), String> {
     crate::filesystem::rename_file(&old_path, &new_path)
 }
 
+// ─── Settings ────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub fn get_settings() -> crate::settings::Settings {
+    crate::settings::read_settings()
+}
+
+#[tauri::command]
+pub fn save_settings(settings: crate::settings::Settings) -> Result<(), String> {
+    crate::settings::write_settings(&settings)
+}
+
 // ─── Code Intelligence ───────────────────────────────────────────────
 
 #[tauri::command]

@@ -9,6 +9,7 @@ import TabBar from './components/tabs/TabBar';
 import Sidebar from './components/sidebar/Sidebar';
 import StatusBar from './components/statusbar/StatusBar';
 import ShortcutsModal from './components/toolbar/ShortcutsModal';
+import SettingsPanel from './components/settings/SettingsPanel';
 import CommandPalette from './components/toolbar/CommandPalette';
 import type { Command } from './components/toolbar/CommandPalette';
 import { useSuspension } from './hooks/useSuspension';
@@ -24,6 +25,7 @@ function App() {
   const error = useAppStore((s) => s.error);
   const showShortcuts = useAppStore((s) => s.showShortcuts);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const notebookRef = useRef<NotebookHandle>(null);
 
   // Initialize suspension timer system and autosave
@@ -308,6 +310,7 @@ function App() {
         }}
         onToggleLineNumbers={() => notebookRef.current?.toggleLineNumbers()}
         onShowShortcuts={() => setShowShortcuts(true)}
+        onShowSettings={() => setShowSettings(true)}
         fileName={tab.fileName}
         hasKernel={!!tab.kernelId}
       />
@@ -411,6 +414,7 @@ function App() {
       <StatusBar />
 
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
+      {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
 
       {showCommandPalette && (
         <CommandPalette

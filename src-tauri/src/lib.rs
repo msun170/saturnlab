@@ -37,6 +37,9 @@ pub fn run() {
             commands::list_directory,
             commands::get_cwd,
             commands::rename_file,
+            // Settings
+            commands::get_settings,
+            commands::save_settings,
             // Memory
             commands::get_kernel_memory,
             commands::inspect_variables,

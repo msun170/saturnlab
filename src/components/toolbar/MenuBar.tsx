@@ -91,6 +91,7 @@ interface MenuBarProps {
   onRestartAndRunAll: () => void;
   onToggleLineNumbers: () => void;
   onShowShortcuts: () => void;
+  onShowSettings: () => void;
   fileName: string;
   hasKernel: boolean;
 }
@@ -146,6 +147,7 @@ export default function MenuBar(props: MenuBarProps) {
 
   const helpItems: MenuItem[] = [
     { label: 'Keyboard Shortcuts', action: props.onShowShortcuts, shortcut: 'H' },
+    { label: 'Settings', action: props.onShowSettings },
     { divider: true, label: '' },
     { label: 'About Saturn', action: () => alert('Saturn v0.1.0\nLightweight Jupyter Notebook') },
   ];

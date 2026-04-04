@@ -2,12 +2,21 @@ import { useEffect, useRef } from 'react';
 import { useAppStore } from '../store';
 import type { SuspensionLayer } from '../store';
 
-const LAYER_B_DELAY = 30_000;  // 30 seconds
-const LAYER_A_DELAY = 300_000; // 5 minutes
-// Layer C is OFF by default. User must opt in via settings.
-// When enabled, suggested values: 1_800_000 (30min), 3_600_000 (1hr), 7_200_000 (2hr)
-const LAYER_C_ENABLED = false;
-const LAYER_C_DELAY = 1_800_000; // 30 minutes
+// Defaults. These get overridden by settings loaded from disk.
+let LAYER_B_DELAY = 30_000;
+let LAYER_A_DELAY = 300_000;
+let LAYER_C_ENABLED = false;
+let LAYER_C_DELAY = 1_800_000;
+
+// Load settings from Rust backend on startup
+import('../lib/ipc').then(({ getSettings }) => {
+  getSettings().then((s) => {
+    LAYER_B_DELAY = s.layer_b_delay_seconds * 1000;
+    LAYER_A_DELAY = s.layer_a_delay_seconds * 1000;
+    LAYER_C_ENABLED = s.kernel_auto_stop_minutes !== null;
+    LAYER_C_DELAY = (s.kernel_auto_stop_minutes ?? 30) * 60 * 1000;
+  }).catch(() => {});
+}).catch(() => {});
 
 interface TabTimers {
   layerB: ReturnType<typeof setTimeout> | null;
