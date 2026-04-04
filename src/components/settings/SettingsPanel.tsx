@@ -111,6 +111,7 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
                 }}
               >
                 <option value="never">Never</option>
+                <option value="2">After 2 minutes (testing)</option>
                 <option value="30">After 30 minutes</option>
                 <option value="60">After 1 hour</option>
                 <option value="120">After 2 hours</option>
