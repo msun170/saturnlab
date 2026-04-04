@@ -94,6 +94,17 @@ function MimeRenderer({ data }: { data: Record<string, unknown> }) {
     return <HtmlOutput html={html} />;
   }
 
+  // Skip application/javascript (Bokeh bootstrap, Jupyter-specific, not renderable outside Jupyter)
+  if (data['application/javascript'] && !data['text/html'] && !data['text/plain']) {
+    return null;
+  }
+
+  // If only application/javascript + text/plain, skip the JS and show nothing (Bokeh loading)
+  if (data['application/javascript'] && !data['text/html']) {
+    // This is Bokeh's notebook bootstrap script, skip it
+    return null;
+  }
+
   // text/html handles Bokeh, pandas DataFrames, IPython.display.HTML, etc.
   if (data['text/html']) {
     return <HtmlOutput html={data['text/html'] as string} />;
