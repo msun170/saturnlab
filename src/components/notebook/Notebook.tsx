@@ -331,13 +331,17 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
     setFocusedIndex(index + 1);
   }, []);
 
+  const [deletedCells, setDeletedCells] = useState<{ cell: CellState; index: number }[]>([]);
+
   const deleteCell = useCallback(
     (index: number) => {
       if (cells.length <= 1) return; // Don't delete the last cell
+      const cell = cells[index];
+      setDeletedCells((prev) => [...prev, { cell, index }]);
       setCells((prev) => prev.filter((_, i) => i !== index));
       setFocusedIndex(Math.min(index, cells.length - 2));
     },
-    [cells.length],
+    [cells],
   );
 
   const moveCell = useCallback(
@@ -422,7 +426,6 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
   // ─── Clipboard ─────────────────────────────────────────────────
 
   const [clipboard, setClipboard] = useState<CellState | null>(null);
-  const [deletedCells, setDeletedCells] = useState<{ cell: CellState; index: number }[]>([]);
 
   const cutCell = useCallback(
     (index: number) => {
@@ -697,6 +700,11 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
           changeCellType(focusedIndex, 'code');
           break;
         // x, c, v, z handled via Ctrl+ above (not bare keys)
+        case 'Backspace':
+        case 'Delete':
+          e.preventDefault();
+          deleteCell(focusedIndex);
+          break;
         case 's':
           e.preventDefault();
           onSave?.();
