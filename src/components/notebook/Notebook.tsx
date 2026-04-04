@@ -616,20 +616,18 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
     function handleKeyDown(e: KeyboardEvent) {
       const target = e.target as HTMLElement;
 
-      // Ctrl+Z: always pass through to the focused cell's editor for undo
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
-        // Find the focused cell's CodeMirror editor and dispatch undo
-        const cellContainers = document.querySelectorAll('.cell-container');
-        const focusedCell = cellContainers[focusedIndex];
-        const editor = focusedCell?.querySelector('.cm-editor .cm-content') as HTMLElement | null;
-        if (editor) {
-          editor.focus();
-          // Let the browser/CodeMirror handle Ctrl+Z natively
-        }
+      // When inside an editor, let all Ctrl+ shortcuts through to the editor
+      if (target.closest('.cm-editor') || target.tagName === 'TEXTAREA' || target.tagName === 'INPUT') {
         return;
       }
 
-      if (target.closest('.cm-editor') || target.tagName === 'TEXTAREA' || target.tagName === 'INPUT') {
+      // Ctrl+Z/X/C/V in command mode: cell operations
+      if ((e.ctrlKey || e.metaKey) && ['z', 'x', 'c', 'v'].includes(e.key)) {
+        e.preventDefault();
+        if (e.key === 'z') undoDelete();
+        else if (e.key === 'x') cutCell(focusedIndex);
+        else if (e.key === 'c') copyCell(focusedIndex);
+        else if (e.key === 'v') pasteCell(focusedIndex);
         return;
       }
 

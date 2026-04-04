@@ -110,12 +110,12 @@ export default function MenuBar(props: MenuBarProps) {
   ];
 
   const editItems: MenuItem[] = [
-    { label: 'Cut Cell', action: props.onCutCell, shortcut: 'X' },
-    { label: 'Copy Cell', action: props.onCopyCell, shortcut: 'C' },
-    { label: 'Paste Cell Below', action: props.onPasteCell, shortcut: 'V' },
-    { label: 'Delete Cell', action: props.onDeleteCell },
+    { label: 'Cut Cell', action: props.onCutCell, shortcut: 'Ctrl+X' },
+    { label: 'Copy Cell', action: props.onCopyCell, shortcut: 'Ctrl+C' },
+    { label: 'Paste Cell Below', action: props.onPasteCell, shortcut: 'Ctrl+V' },
+    { label: 'Delete Cell', action: props.onDeleteCell, shortcut: 'D,D' },
     { divider: true, label: '' },
-    { label: 'Undo Cell Deletion', action: props.onUndoDelete, shortcut: 'Z' },
+    { label: 'Undo Cell Deletion', action: props.onUndoDelete, shortcut: 'Ctrl+Z' },
   ];
 
   const viewItems: MenuItem[] = [
