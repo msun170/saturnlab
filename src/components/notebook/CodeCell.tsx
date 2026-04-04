@@ -78,8 +78,8 @@ export default function CodeCell({
       '.cm-content': {
         caretColor: '#333',
         fontFamily: 'Menlo, Monaco, Consolas, "Courier New", monospace',
-        fontSize: '14px',
-        lineHeight: '20px',
+        fontSize: 'var(--editor-font-size, 14px)',
+        lineHeight: '1.5',
       },
       '.cm-gutters': {
         backgroundColor: '#f7f7f7',

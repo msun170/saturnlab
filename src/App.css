@@ -13,7 +13,7 @@
 :root {
   --font-ui: "Helvetica Neue", Helvetica, Arial, sans-serif;
   --font-code: Menlo, Monaco, Consolas, "Courier New", monospace;
-  --font-size-code: 14px;
+  --font-size-code: var(--editor-font-size, 14px);
   --line-height-code: 20px;
 
   --bg-page: #fff;

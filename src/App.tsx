@@ -26,6 +26,12 @@ function App() {
   const showShortcuts = useAppStore((s) => s.showShortcuts);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const editorFontSize = useAppStore((s) => s.appSettings.editor_font_size);
+
+  // Apply settings as CSS variables so CodeMirror picks them up
+  useEffect(() => {
+    document.documentElement.style.setProperty('--editor-font-size', `${editorFontSize}px`);
+  }, [editorFontSize]);
   const notebookRef = useRef<NotebookHandle>(null);
 
   // Initialize suspension timer system and autosave
@@ -69,6 +75,13 @@ function App() {
         .catch((e: unknown) => setError(`Failed to discover kernels: ${e}`));
     };
     fetchSpecs();
+
+    // Load settings from disk into store
+    import('./lib/ipc').then(({ getSettings }) => {
+      getSettings().then((s) => {
+        useAppStore.getState().setAppSettings(s);
+      }).catch(() => {});
+    });
   }, []);
 
   // Restore notebook data for tabs loaded from localStorage (Ctrl+R recovery)

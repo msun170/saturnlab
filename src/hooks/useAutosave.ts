@@ -1,17 +1,19 @@
 import { useEffect, useRef } from 'react';
 import { useAppStore } from '../store';
 
-const AUTOSAVE_INTERVAL = 30_000; // 30 seconds
-
 /**
- * Auto-saves dirty notebooks every 30 seconds.
- * Only saves tabs that have a filePath (not untitled).
- * Updates lastAutosaveTime in store for status bar display.
+ * Auto-saves dirty notebooks at the interval configured in settings.
+ * Reads interval from appSettings in the store (updated when settings are saved).
  */
 export function useAutosave() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Re-subscribe when settings change
+  const intervalMs = useAppStore((s) => s.appSettings.autosave_interval_seconds) * 1000;
+
   useEffect(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+
     intervalRef.current = setInterval(async () => {
       const state = useAppStore.getState();
       let saved = false;
@@ -38,10 +40,10 @@ export function useAutosave() {
           useAppStore.getState().setLastAutosaveTime(null);
         }, 10_000);
       }
-    }, AUTOSAVE_INTERVAL);
+    }, intervalMs);
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, []);
+  }, [intervalMs]);
 }

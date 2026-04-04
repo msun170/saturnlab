@@ -2,21 +2,16 @@ import { useEffect, useRef } from 'react';
 import { useAppStore } from '../store';
 import type { SuspensionLayer } from '../store';
 
-// Defaults. These get overridden by settings loaded from disk.
-let LAYER_B_DELAY = 30_000;
-let LAYER_A_DELAY = 300_000;
-let LAYER_C_ENABLED = false;
-let LAYER_C_DELAY = 1_800_000;
-
-// Load settings from Rust backend on startup
-import('../lib/ipc').then(({ getSettings }) => {
-  getSettings().then((s) => {
-    LAYER_B_DELAY = s.layer_b_delay_seconds * 1000;
-    LAYER_A_DELAY = s.layer_a_delay_seconds * 1000;
-    LAYER_C_ENABLED = s.kernel_auto_stop_minutes !== null;
-    LAYER_C_DELAY = (s.kernel_auto_stop_minutes ?? 30) * 60 * 1000;
-  }).catch(() => {});
-}).catch(() => {});
+// Read delays from the store (updated when settings are saved)
+function getDelays() {
+  const s = useAppStore.getState().appSettings;
+  return {
+    layerB: s.layer_b_delay_seconds * 1000,
+    layerA: s.layer_a_delay_seconds * 1000,
+    layerCEnabled: s.kernel_auto_stop_minutes !== null,
+    layerC: (s.kernel_auto_stop_minutes ?? 30) * 60 * 1000,
+  };
+}
 
 interface TabTimers {
   layerB: ReturnType<typeof setTimeout> | null;
@@ -84,19 +79,19 @@ export function useSuspension() {
 
   function startTimersForTab(tabId: string) {
     clearTimersForTab(tabId);
+    const delays = getDelays();
 
     const tabTimers: TabTimers = {
       layerB: setTimeout(() => {
         setSuspension(tabId, 'layerB');
-      }, LAYER_B_DELAY),
+      }, delays.layerB),
 
       layerA: setTimeout(() => {
         setSuspension(tabId, 'layerA');
-      }, LAYER_A_DELAY),
+      }, delays.layerA),
 
-      layerC: LAYER_C_ENABLED ? setTimeout(() => {
+      layerC: delays.layerCEnabled ? setTimeout(() => {
         setSuspension(tabId, 'layerC');
-        // Stop the kernel for this tab
         const store = useAppStore.getState();
         const tab = store.tabs.find((t) => t.id === tabId);
         if (tab?.kernelId) {
@@ -108,7 +103,7 @@ export function useSuspension() {
             });
           });
         }
-      }, LAYER_C_DELAY) : null,
+      }, delays.layerC) : null,
     };
 
     timers.current.set(tabId, tabTimers);

@@ -18,6 +18,9 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
     if (!settings) return;
     try {
       await saveSettings(settings);
+      // Update the store so running features pick up new values immediately
+      const { useAppStore } = await import('../../store');
+      useAppStore.getState().setAppSettings(settings);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch {

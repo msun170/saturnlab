@@ -81,6 +81,15 @@ interface AppStore {
   error: string | null;
   showShortcuts: boolean;
   lastAutosaveTime: string | null;
+  appSettings: {
+    kernel_auto_stop_minutes: number | null;
+    layer_b_delay_seconds: number;
+    layer_a_delay_seconds: number;
+    autosave_interval_seconds: number;
+    show_line_numbers: boolean;
+    theme: string;
+    editor_font_size: number;
+  };
 
   // Tab actions
   addTab: (overrides?: Partial<TabState>) => string;
@@ -94,6 +103,7 @@ interface AppStore {
   setError: (error: string | null) => void;
   setShowShortcuts: (show: boolean) => void;
   setLastAutosaveTime: (time: string | null) => void;
+  setAppSettings: (settings: AppStore['appSettings']) => void;
 }
 
 const initialTab = createDefaultTab({ fileName: 'Launcher', isLauncher: true });
@@ -107,6 +117,15 @@ export const useAppStore = create<AppStore>((set, get) => ({
   error: null,
   showShortcuts: false,
   lastAutosaveTime: null,
+  appSettings: {
+    kernel_auto_stop_minutes: null,
+    layer_b_delay_seconds: 30,
+    layer_a_delay_seconds: 300,
+    autosave_interval_seconds: 30,
+    show_line_numbers: true,
+    theme: 'light',
+    editor_font_size: 14,
+  },
 
   addTab: (overrides) => {
     const tab = createDefaultTab(overrides);
@@ -165,6 +184,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setError: (error) => set({ error }),
   setShowShortcuts: (show) => set({ showShortcuts: show }),
   setLastAutosaveTime: (time) => set({ lastAutosaveTime: time }),
+  setAppSettings: (settings) => set({ appSettings: settings }),
 }));
 
 // Persist open tab file paths to localStorage for Ctrl+R reload recovery
