@@ -642,7 +642,9 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
       }
 
       // Ctrl+Z/X/C/V in command mode: cell operations
-      if ((e.ctrlKey || e.metaKey) && ['z', 'x', 'c', 'v'].includes(e.key)) {
+      // But only if no text is selected (allow normal copy/paste of selected text)
+      const hasTextSelection = (window.getSelection()?.toString().length ?? 0) > 0;
+      if ((e.ctrlKey || e.metaKey) && ['z', 'x', 'c', 'v'].includes(e.key) && !hasTextSelection) {
         e.preventDefault();
         if (e.key === 'z') undoDelete();
         else if (e.key === 'x') cutCell(focusedIndex);

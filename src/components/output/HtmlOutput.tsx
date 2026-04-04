@@ -50,7 +50,7 @@ export default function HtmlOutput({ html }: HtmlOutputProps) {
   }, [html, expanded, hasScript]);
 
   if (hasScript) {
-    const srcDoc = `<!DOCTYPE html><html><head><style>body{margin:0;font-family:sans-serif;color:#d4d4d4;background:#1a1a1a;}</style></head><body>${html}</body></html>`;
+    const srcDoc = `<!DOCTYPE html><html><head><style>body{margin:0;font-family:sans-serif;color:#333;background:#fff;}</style></head><body>${html}</body></html>`;
     return (
       <iframe
         srcDoc={srcDoc}

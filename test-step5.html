@@ -1,0 +1,244 @@
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>test-step5.ipynb</title>
+<style>body{font-family:"Helvetica Neue",Arial,sans-serif;max-width:900px;margin:40px auto;padding:0 20px;color:#333}
+pre{background:#f7f7f7;border:1px solid #ccc;border-radius:3px;padding:12px;overflow-x:auto;font-family:Menlo,Monaco,Consolas,monospace;font-size:14px}
+.cell{margin:16px 0}.output{margin:8px 0 8px 0;color:#000}
+.markdown{line-height:1.6}.stderr{background:#fdd}img{max-width:100%}
+table{border-collapse:collapse;margin:8px 0}th,td{border:1px solid #000;padding:4px 8px;text-align:right}
+</style></head><body>
+<div class="cell">
+<div class="markdown"># Step 5 Test: Rich Output, Export, and Settings</div>
+</div>
+<div class="cell">
+<div class="markdown">## 5.1 Plotly Charts
+Run the cell below. You should see an interactive Plotly chart in a sandboxed iframe.</div>
+</div>
+<div class="cell">
+<pre># Plotly test (requires: pip install plotly)
+try:
+    import plotly.graph_objects as go
+    fig = go.Figure(data=go.Scatter(x=[1,2,3,4,5], y=[2,4,3,5,4], mode="lines+markers", name="Data"))
+    fig.update_layout(title="Plotly in Saturn", xaxis_title="X", yaxis_title="Y")
+    fig.show()
+except ImportError:
+    print("Plotly not installed. Run: pip install plotly")</pre>
+</div>
+<div class="cell">
+<div class="markdown">## 5.2 Bokeh Charts
+Run the cell below. You should see a Bokeh chart rendered via HTML.</div>
+</div>
+<div class="cell">
+<pre># Bokeh test (requires: pip install bokeh)
+try:
+    from bokeh.plotting import figure, show
+    from bokeh.io import output_notebook
+    output_notebook()
+    p = figure(title="Bokeh in Saturn", x_axis_label="X", y_axis_label="Y", width=500, height=300)
+    p.line([1,2,3,4,5], [6,7,2,4,5], line_width=2, color="navy")
+    p.circle([1,2,3,4,5], [6,7,2,4,5], size=8, color="red")
+    show(p)
+except ImportError:
+    print("Bokeh not installed. Run: pip install bokeh")</pre>
+<div class="output">    <style>
+        .bk-notebook-logo {
+            display: block;
+            width: 20px;
+            height: 20px;
+            background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAALEgAACxIB0t1+/AAAABx0RVh0U29mdHdhcmUAQWRvYmUgRmlyZXdvcmtzIENTNui8sowAAAOkSURBVDiNjZRtaJVlGMd/1/08zzln5zjP1LWcU9N0NkN8m2CYjpgQYQXqSs0I84OLIC0hkEKoPtiH3gmKoiJDU7QpLgoLjLIQCpEsNJ1vqUOdO7ppbuec5+V+rj4ctwzd8IIbbi6u+8f1539dt3A78eXC7QizUF7gyV1fD1Yqg4JWz84yffhm0qkFqBogB9rM8tZdtwVsPUhWhGcFJngGeWrPzHm5oaMmkfEg1usvLFyc8jLRqDOMru7AyC8saQr7GG7f5fvDeH7Ej8CM66nIF+8yngt6HWaKh7k49Soy9nXurCi1o3qUbS3zWfrYeQDTB/Qj6kX6Ybhw4B+bOYoLKCC9H3Nu/leUTZ1JdRWkkn2ldcCamzrcf47KKXdAJllSlxAOkRgyHsGC/zRday5Qld9DyoM4/q/rUoy/CXh3jzOu3bHUVZeU+DEn8FInkPBFlu3+nW3Nw0mk6vCDiWg8CeJaxEwuHS3+z5RgY+YBR6V1Z1nxSOfoaPa4LASWxxdNp+VWTk7+4vzaou8v8PN+xo+KY2xsw6une2frhw05CTYOmQvsEhjhWjn0bmXPjpE1+kplmmkP3suftwTubK9Vq22qKmrBhpY4jvd5afdRA3wGjFAgcnTK2s4hY0/GPNIb0nErGMCRxWOOX64Z8RAC4oCXdklmEvcL8o0BfkNK4lUg9HTl+oPlQxdNo3Mg4Nv175e/1LDGzZen30MEjRUtmXSfiTVu1kK8W4txyV6BMKlbgk3lMwYCiusNy9fVfvvwMxv8Ynl6vxoByANLTWplvuj/nF9m2+PDtt1eiHPBr1oIfhCChQMBw6Aw0UulqTKZdfVvfG7VcfIqLG9bcldL/+pdWTLxLUy8Qq38heUIjh4XlzZxzQm19lLFlr8vdQ97rjZVOLf8nclzckbcD4wxXMidpX30sFd37Fv/GtwwhzhxGVAprjbg0gCAEeIgwCZyTV2Z1REEW8O4py0wsjeloKoMr6iCY6dP92H6Vw/oTyICIthibxjm/DfN9lVz8IqtqKYLUXfoKVMVQVVJOElGjrnnUt9T9wbgp8AyYKaGlqingHZU/uG2NTZSVqwHQTWkx9hxjkpWDaCg6Ckj5qebgBVbT3V3NNXMSiWSDdGV3hrtzla7J+duwPOToIg42ChPQOQjspnSlp1V+Gjdged7+8UN5CRAV7a5EdFNwCjEaBR27b3W890TE7g24NAP/mMDXRWrGoFPQI9ls/MWO2dWFAar/xcOIImbbpA3zgAAAABJRU5ErkJggg==);
+        }
+    </style>
+    <div>
+        <a href="https://bokeh.org" target="_blank" class="bk-notebook-logo"></a>
+        <span id="cdc4e9d1-c86c-4c9e-8176-ea786597a2e9">Loading BokehJS ...</span>
+    </div>
+</div>
+<pre class="output stderr">BokehDeprecationWarning: 'circle() method with size value' was deprecated in Bokeh 3.4.0 and will be removed, use 'scatter(size=...) instead' instead.
+</pre>
+<div class="output">
+  <div id="f6c32d41-2aa1-4a6f-b04d-1d5747542702" data-root-id="p1008" style="display: contents;"></div>
+</div>
+</div>
+<div class="cell">
+<div class="markdown">## 5.3 Altair/Vega Charts
+Run the cell below. You should see an Altair chart.</div>
+</div>
+<div class="cell">
+<pre># Altair test (requires: pip install altair vega_datasets)
+try:
+    import altair as alt
+    import pandas as pd
+    data = pd.DataFrame({"x": range(20), "y": [x**2 for x in range(20)]})
+    chart = alt.Chart(data).mark_circle(size=60).encode(
+        x="x", y="y",
+        tooltip=["x", "y"]
+    ).properties(title="Altair in Saturn", width=400, height=250)
+    chart.display()
+except ImportError:
+    print("Altair not installed. Run: pip install altair")</pre>
+<div class="output">
+<style>
+  #altair-viz-ef48f495d3f24049acde4eb517877229.vega-embed {
+    width: 100%;
+    display: flex;
+  }
+
+  #altair-viz-ef48f495d3f24049acde4eb517877229.vega-embed details,
+  #altair-viz-ef48f495d3f24049acde4eb517877229.vega-embed details summary {
+    position: relative;
+  }
+</style>
+<div id="altair-viz-ef48f495d3f24049acde4eb517877229"></div>
+<script type="text/javascript">
+  var VEGA_DEBUG = (typeof VEGA_DEBUG == "undefined") ? {} : VEGA_DEBUG;
+  (function(spec, embedOpt){
+    let outputDiv = document.currentScript.previousElementSibling;
+    if (outputDiv.id !== "altair-viz-ef48f495d3f24049acde4eb517877229") {
+      outputDiv = document.getElementById("altair-viz-ef48f495d3f24049acde4eb517877229");
+    }
+
+    const paths = {
+      "vega": "https://cdn.jsdelivr.net/npm/vega@6?noext",
+      "vega-lib": "https://cdn.jsdelivr.net/npm/vega-lib?noext",
+      "vega-lite": "https://cdn.jsdelivr.net/npm/vega-lite@6.1.0?noext",
+      "vega-embed": "https://cdn.jsdelivr.net/npm/vega-embed@7?noext",
+    };
+
+    function maybeLoadScript(lib, version) {
+      var key = `${lib.replace("-", "")}_version`;
+      return (VEGA_DEBUG[key] == version) ?
+        Promise.resolve(paths[lib]) :
+        new Promise(function(resolve, reject) {
+          var s = document.createElement('script');
+          document.getElementsByTagName("head")[0].appendChild(s);
+          s.async = true;
+          s.onload = () => {
+            VEGA_DEBUG[key] = version;
+            return resolve(paths[lib]);
+          };
+          s.onerror = () => reject(`Error loading script: ${paths[lib]}`);
+          s.src = paths[lib];
+        });
+    }
+
+    function showError(err) {
+      outputDiv.innerHTML = `<div class="error" style="color:red;">${err}</div>`;
+      throw err;
+    }
+
+    function displayChart(vegaEmbed) {
+      vegaEmbed(outputDiv, spec, embedOpt)
+        .catch(err => showError(`Javascript Error: ${err.message}<br>This usually means there's a typo in your chart specification. See the javascript console for the full traceback.`));
+    }
+
+    if(typeof define === "function" && define.amd) {
+      requirejs.config({paths});
+      let deps = ["vega-embed"];
+      require(deps, displayChart, err => showError(`Error loading script: ${err.message}`));
+    } else {
+      maybeLoadScript("vega", "6")
+        .then(() => maybeLoadScript("vega-lite", "6.1.0"))
+        .then(() => maybeLoadScript("vega-embed", "7"))
+        .catch(showError)
+        .then(() => displayChart(vegaEmbed));
+    }
+  })({"config": {"view": {"continuousWidth": 300, "continuousHeight": 300}}, "data": {"name": "data-51f1be4773baa16c2add609ce696b250"}, "mark": {"type": "circle", "size": 60}, "encoding": {"tooltip": [{"field": "x", "type": "quantitative"}, {"field": "y", "type": "quantitative"}], "x": {"field": "x", "type": "quantitative"}, "y": {"field": "y", "type": "quantitative"}}, "height": 250, "title": "Altair in Saturn", "width": 400, "$schema": "https://vega.github.io/schema/vega-lite/v6.1.0.json", "datasets": {"data-51f1be4773baa16c2add609ce696b250": [{"x": 0, "y": 0}, {"x": 1, "y": 1}, {"x": 2, "y": 4}, {"x": 3, "y": 9}, {"x": 4, "y": 16}, {"x": 5, "y": 25}, {"x": 6, "y": 36}, {"x": 7, "y": 49}, {"x": 8, "y": 64}, {"x": 9, "y": 81}, {"x": 10, "y": 100}, {"x": 11, "y": 121}, {"x": 12, "y": 144}, {"x": 13, "y": 169}, {"x": 14, "y": 196}, {"x": 15, "y": 225}, {"x": 16, "y": 256}, {"x": 17, "y": 289}, {"x": 18, "y": 324}, {"x": 19, "y": 361}]}}, {"mode": "vega-lite"});
+</script></div>
+</div>
+<div class="cell">
+<div class="markdown">## 5.4 iframe Sandboxing
+The Plotly/Bokeh charts above should render inside sandboxed iframes. You can verify by right-clicking the chart area and checking that it says "iframe" in the context menu.
+
+Also test with raw HTML containing scripts:</div>
+</div>
+<div class="cell">
+<pre># Raw HTML with script (should render in sandboxed iframe)
+from IPython.display import HTML
+HTML("""&lt;div style="padding:20px;background:#e8f5e9;border-radius:8px;text-align:center"&gt;
+    &lt;h3 id="dynamic"&gt;Loading...&lt;/h3&gt;
+    &lt;script&gt;document.getElementById("dynamic").textContent = "This HTML was rendered in a sandboxed iframe!";&lt;/script&gt;
+&lt;/div&gt;""")</pre>
+<div class="output"><div style="padding:20px;background:#e8f5e9;border-radius:8px;text-align:center">
+    <h3 id="dynamic">Loading...</h3>
+    <script>document.getElementById("dynamic").textContent = "This HTML was rendered in a sandboxed iframe!";</script>
+</div></div>
+</div>
+<div class="cell">
+<div class="markdown">## 5.6 Export
+
+### Export to Python
+1. Go to **File &gt; Download as Python (.py)**
+2. Save the file
+3. Open it in a text editor
+4. Verify: code cells are plain Python, markdown cells are comments prefixed with #
+
+### Export to HTML
+1. Go to **File &gt; Download as HTML**
+2. Save the file
+3. Open it in a browser
+4. Verify: code cells show as code blocks, outputs are embedded (tables, images)
+
+### Save Without Outputs
+1. Go to **File &gt; Save Without Outputs**
+2. Save as a new file
+3. Open the new file in Saturn
+4. Verify: all code is there but no outputs, no execution counts</div>
+</div>
+<div class="cell">
+<div class="markdown">## 5.7 Settings
+
+### Font Size
+1. Go to **Help &gt; Settings**
+2. Change font size to **20**
+3. Click **Save**
+4. Code AND output text should be larger
+
+### Auto-save Interval
+1. Change auto-save to **10 seconds**, Save
+2. Run a cell to make the tab dirty
+3. Wait 10 seconds
+4. Green "Autosaved at HH:MM:SS" should appear in status bar
+
+### Kernel Auto-stop
+1. Set auto-stop to **After 2 minutes (testing)**
+2. Save, open a second tab with a running kernel
+3. Stay on this tab for 2+ minutes
+4. The other tab should show a pause icon</div>
+</div>
+<div class="cell">
+<pre># Basic output for export testing
+import pandas as pd
+import numpy as np
+
+df = pd.DataFrame(np.random.randn(10, 3), columns=["A", "B", "C"])
+print("Summary:")
+print(df.describe())
+df</pre>
+</div>
+<div class="cell">
+<pre># Matplotlib for export testing (image should appear in HTML export)
+import matplotlib.pyplot as plt
+import numpy as np
+
+x = np.linspace(0, 10, 100)
+plt.figure(figsize=(6, 3))
+plt.plot(x, np.sin(x), label="sin")
+plt.plot(x, np.cos(x), label="cos")
+plt.title("Export Test Plot")
+plt.legend()
+plt.show()</pre>
+</div>
+<div class="cell">
+<div class="markdown">## Test Checklist
+
+- [ ] Plotly chart renders interactively (hover shows values)
+- [ ] Bokeh chart renders (if installed)
+- [ ] Altair chart renders (if installed)
+- [ ] HTML with script renders in iframe (shows green box with text)
+- [ ] File &gt; Download as Python (.py) exports correctly
+- [ ] File &gt; Download as HTML exports with outputs embedded
+- [ ] File &gt; Save Without Outputs creates clean version
+- [ ] Font size change takes effect immediately
+- [ ] Auto-save interval change takes effect
+- [ ] Kernel auto-stop works at 2-minute setting</div>
+</div>
+</body></html>

@@ -68,7 +68,33 @@ function OutputRenderer({ output }: { output: Output }) {
  * so these libraries work out of the box.
  */
 function MimeRenderer({ data }: { data: Record<string, unknown> }) {
-  // text/html handles Plotly, Bokeh, Altair, pandas DataFrames, etc.
+  // Plotly JSON: render via plotly.js CDN in an iframe
+  if (data['application/vnd.plotly.v1+json']) {
+    const spec = data['application/vnd.plotly.v1+json'];
+    const specJson = typeof spec === 'string' ? spec : JSON.stringify(spec);
+    const html = `<div id="plotly-chart" style="width:100%;height:400px"></div>
+      <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"><\/script>
+      <script>
+        var spec = ${specJson};
+        Plotly.newPlot('plotly-chart', spec.data || [], spec.layout || {}, {responsive:true});
+      <\/script>`;
+    return <HtmlOutput html={html} />;
+  }
+
+  // Vega/Altair JSON: render via vega-embed CDN
+  const vegaKey = Object.keys(data).find((k) => k.startsWith('application/vnd.vega'));
+  if (vegaKey) {
+    const spec = data[vegaKey];
+    const specJson = typeof spec === 'string' ? spec : JSON.stringify(spec);
+    const html = `<div id="vega-chart"></div>
+      <script src="https://cdn.jsdelivr.net/npm/vega@5"><\/script>
+      <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"><\/script>
+      <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"><\/script>
+      <script>vegaEmbed('#vega-chart', ${specJson})<\/script>`;
+    return <HtmlOutput html={html} />;
+  }
+
+  // text/html handles Bokeh, pandas DataFrames, IPython.display.HTML, etc.
   if (data['text/html']) {
     return <HtmlOutput html={data['text/html'] as string} />;
   }
