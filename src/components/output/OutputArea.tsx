@@ -62,9 +62,13 @@ function OutputRenderer({ output }: { output: Output }) {
   }
 }
 
-/** Render the richest available MIME type from a data bundle. */
+/** Render the richest available MIME type from a data bundle.
+ * Plotly, Bokeh, and Altair all output text/html with embedded scripts.
+ * Our HtmlOutput renders HTML with scripts in sandboxed iframes (5.4),
+ * so these libraries work out of the box.
+ */
 function MimeRenderer({ data }: { data: Record<string, unknown> }) {
-  // Priority order matching Jupyter's mime type precedence
+  // text/html handles Plotly, Bokeh, Altair, pandas DataFrames, etc.
   if (data['text/html']) {
     return <HtmlOutput html={data['text/html'] as string} />;
   }

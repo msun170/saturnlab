@@ -200,6 +200,11 @@ pub fn rename_file(old_path: String, new_path: String) -> Result<(), String> {
     crate::filesystem::rename_file(&old_path, &new_path)
 }
 
+#[tauri::command]
+pub fn write_text_file(path: String, content: String) -> Result<(), String> {
+    std::fs::write(&path, &content).map_err(|e| format!("Write failed: {}", e))
+}
+
 // ─── Settings ────────────────────────────────────────────────────────
 
 #[tauri::command]

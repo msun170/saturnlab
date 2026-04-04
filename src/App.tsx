@@ -276,7 +276,101 @@ function App() {
           }
           if (tab) useAppStore.getState().removeTab(tab.id);
         }}
-        onDownloadPy={() => {/* TODO */}}
+        onDownloadPy={async () => {
+          if (!tab) return;
+          try {
+            const { save } = await import('@tauri-apps/plugin-dialog');
+            const selected = await save({
+              filters: [{ name: 'Python Script', extensions: ['py'] }],
+              defaultPath: tab.fileName.replace('.ipynb', '.py'),
+            });
+            if (!selected) return;
+            // Convert notebook cells to Python script
+            const lines: string[] = [];
+            lines.push('#!/usr/bin/env python3');
+            lines.push('# Converted from: ' + tab.fileName);
+            lines.push('');
+            for (const cell of tab.notebook.cells) {
+              const source = Array.isArray(cell.source) ? cell.source.join('') : cell.source;
+              if (cell.cell_type === 'code') {
+                lines.push(source);
+                lines.push('');
+              } else if (cell.cell_type === 'markdown') {
+                // Convert markdown to Python comments
+                for (const line of source.split('\n')) {
+                  lines.push('# ' + line);
+                }
+                lines.push('');
+              }
+            }
+            const content = lines.join('\n');
+            const { invoke } = await import('@tauri-apps/api/core');
+            await invoke('write_text_file', { path: selected, content });
+          } catch (e: unknown) {
+            setError(`Export failed: ${e}`);
+          }
+        }}
+        onDownloadHtml={async () => {
+          if (!tab) return;
+          try {
+            const { save } = await import('@tauri-apps/plugin-dialog');
+            const selected = await save({
+              filters: [{ name: 'HTML', extensions: ['html'] }],
+              defaultPath: tab.fileName.replace('.ipynb', '.html'),
+            });
+            if (!selected) return;
+
+            // Build a standalone HTML file with all cell contents and outputs
+            const parts: string[] = [];
+            parts.push('<!DOCTYPE html><html><head><meta charset="utf-8">');
+            parts.push(`<title>${tab.fileName}</title>`);
+            parts.push('<style>body{font-family:"Helvetica Neue",Arial,sans-serif;max-width:900px;margin:40px auto;padding:0 20px;color:#333}');
+            parts.push('pre{background:#f7f7f7;border:1px solid #ccc;border-radius:3px;padding:12px;overflow-x:auto;font-family:Menlo,Monaco,Consolas,monospace;font-size:14px}');
+            parts.push('.cell{margin:16px 0}.output{margin:8px 0 8px 0;color:#000}');
+            parts.push('.markdown{line-height:1.6}.stderr{background:#fdd}img{max-width:100%}');
+            parts.push('table{border-collapse:collapse;margin:8px 0}th,td{border:1px solid #000;padding:4px 8px;text-align:right}');
+            parts.push('</style></head><body>');
+
+            for (const cell of tab.notebook.cells) {
+              const source = Array.isArray(cell.source) ? cell.source.join('') : cell.source;
+              parts.push('<div class="cell">');
+
+              if (cell.cell_type === 'markdown') {
+                parts.push(`<div class="markdown">${source.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`);
+              } else if (cell.cell_type === 'code') {
+                parts.push(`<pre>${source.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`);
+                if (cell.outputs) {
+                  for (const output of cell.outputs) {
+                    if (output.output_type === 'stream') {
+                      const text = Array.isArray(output.text) ? output.text.join('') : (output.text ?? '');
+                      const cls = output.name === 'stderr' ? 'output stderr' : 'output';
+                      parts.push(`<pre class="${cls}">${text.replace(/</g, '&lt;')}</pre>`);
+                    } else if (output.data) {
+                      const data = output.data as Record<string, unknown>;
+                      if (data['text/html']) {
+                        parts.push(`<div class="output">${data['text/html']}</div>`);
+                      } else if (data['image/png']) {
+                        parts.push(`<div class="output"><img src="data:image/png;base64,${data['image/png']}"></div>`);
+                      } else if (data['text/plain']) {
+                        const t = Array.isArray(data['text/plain']) ? (data['text/plain'] as string[]).join('') : data['text/plain'] as string;
+                        parts.push(`<pre class="output">${t.replace(/</g, '&lt;')}</pre>`);
+                      }
+                    } else if (output.output_type === 'error') {
+                      parts.push(`<pre class="output" style="color:darkred">${(output.traceback ?? []).join('\n').replace(/</g, '&lt;')}</pre>`);
+                    }
+                  }
+                }
+              }
+              parts.push('</div>');
+            }
+            parts.push('</body></html>');
+
+            const { invoke } = await import('@tauri-apps/api/core');
+            await invoke('write_text_file', { path: selected, content: parts.join('\n') });
+          } catch (e: unknown) {
+            setError(`Export failed: ${e}`);
+          }
+        }}
         onSaveWithoutOutputs={async () => {
           if (!tab) return;
           try {
