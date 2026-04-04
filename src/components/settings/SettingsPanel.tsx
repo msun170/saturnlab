@@ -2,6 +2,42 @@ import { useState, useEffect } from 'react';
 import { getSettings, saveSettings } from '../../lib/ipc';
 import type { AppSettings } from '../../lib/ipc';
 
+/** Number input that lets the user freely type (including empty) and validates on save. */
+function NumInput({ value, onChange, min, max, unit }: {
+  value: number; onChange: (v: number) => void; min: number; max: number; unit: string;
+}) {
+  const [raw, setRaw] = useState(String(value));
+
+  // Sync if external value changes
+  useEffect(() => { setRaw(String(value)); }, [value]);
+
+  return (
+    <div className="settings-input-group">
+      <input
+        type="text"
+        inputMode="numeric"
+        value={raw}
+        onChange={(e) => {
+          const v = e.target.value;
+          // Allow empty or digits only
+          if (v === '' || /^\d+$/.test(v)) {
+            setRaw(v);
+            const num = parseInt(v, 10);
+            if (!isNaN(num)) onChange(num);
+          }
+        }}
+        onBlur={() => {
+          // On blur, clamp to valid range
+          const num = parseInt(raw, 10);
+          if (isNaN(num) || num < min) { setRaw(String(min)); onChange(min); }
+          else if (num > max) { setRaw(String(max)); onChange(max); }
+        }}
+      />
+      <span>{unit}</span>
+    </div>
+  );
+}
+
 interface SettingsPanelProps {
   onClose: () => void;
 }
@@ -9,6 +45,7 @@ interface SettingsPanelProps {
 export default function SettingsPanel({ onClose }: SettingsPanelProps) {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     getSettings().then(setSettings).catch(() => {});
@@ -16,9 +53,17 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
 
   const handleSave = async () => {
     if (!settings) return;
+
+    // Validate: no zero or negative values
+    if (settings.layer_b_delay_seconds < 1 || settings.layer_a_delay_seconds < 1 ||
+        settings.autosave_interval_seconds < 1 || settings.editor_font_size < 1) {
+      setSaveError('All values must be greater than 0');
+      setTimeout(() => setSaveError(null), 3000);
+      return;
+    }
+
     try {
       await saveSettings(settings);
-      // Update the store so running features pick up new values immediately
       const { useAppStore } = await import('../../store');
       useAppStore.getState().setAppSettings(settings);
       setSaved(true);
@@ -70,30 +115,14 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
 
             <div className="settings-row">
               <label>Background suspension delay</label>
-              <div className="settings-input-group">
-                <input
-                  type="number"
-                  min="10"
-                  max="300"
-                  value={settings.layer_b_delay_seconds}
-                  onChange={(e) => update({ layer_b_delay_seconds: parseInt(e.target.value, 10) || 30 })}
-                />
-                <span>seconds</span>
-              </div>
+              <NumInput value={settings.layer_b_delay_seconds} min={10} max={300} unit="seconds"
+                onChange={(v) => update({ layer_b_delay_seconds: v })} />
             </div>
 
             <div className="settings-row">
               <label>UI suspension delay</label>
-              <div className="settings-input-group">
-                <input
-                  type="number"
-                  min="60"
-                  max="3600"
-                  value={settings.layer_a_delay_seconds}
-                  onChange={(e) => update({ layer_a_delay_seconds: parseInt(e.target.value, 10) || 300 })}
-                />
-                <span>seconds</span>
-              </div>
+              <NumInput value={settings.layer_a_delay_seconds} min={60} max={3600} unit="seconds"
+                onChange={(v) => update({ layer_a_delay_seconds: v })} />
             </div>
           </div>
 
@@ -112,35 +141,20 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
 
             <div className="settings-row">
               <label>Font size</label>
-              <div className="settings-input-group">
-                <input
-                  type="number"
-                  min="10"
-                  max="24"
-                  value={settings.editor_font_size}
-                  onChange={(e) => update({ editor_font_size: parseInt(e.target.value, 10) || 14 })}
-                />
-                <span>px</span>
-              </div>
+              <NumInput value={settings.editor_font_size} min={8} max={32} unit="px"
+                onChange={(v) => update({ editor_font_size: v })} />
             </div>
 
             <div className="settings-row">
               <label>Auto-save interval</label>
-              <div className="settings-input-group">
-                <input
-                  type="number"
-                  min="10"
-                  max="600"
-                  value={settings.autosave_interval_seconds}
-                  onChange={(e) => update({ autosave_interval_seconds: parseInt(e.target.value, 10) || 30 })}
-                />
-                <span>seconds</span>
-              </div>
+              <NumInput value={settings.autosave_interval_seconds} min={5} max={600} unit="seconds"
+                onChange={(v) => update({ autosave_interval_seconds: v })} />
             </div>
           </div>
         </div>
 
         <div className="settings-footer">
+          {saveError && <span className="settings-error">{saveError}</span>}
           {saved && <span className="settings-saved">Settings saved!</span>}
           <button className="settings-cancel-btn" onClick={onClose}>Cancel</button>
           <button className="settings-save-btn" onClick={handleSave}>Save</button>

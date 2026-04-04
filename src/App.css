@@ -2057,7 +2057,8 @@ body {
 }
 
 .settings-row select,
-.settings-row input[type="number"] {
+.settings-row input[type="number"],
+.settings-row input[type="text"] {
   padding: 4px 8px;
   font-size: 13px;
   border: 1px solid var(--border-color);
@@ -2071,7 +2072,8 @@ body {
   min-width: 160px;
 }
 
-.settings-row input[type="number"] {
+.settings-row input[type="number"],
+.settings-row input[type="text"] {
   width: 70px;
   text-align: right;
 }
@@ -2100,6 +2102,12 @@ body {
 
 .settings-saved {
   color: #4caf50;
+  font-size: 12px;
+  margin-right: auto;
+}
+
+.settings-error {
+  color: #e53935;
   font-size: 12px;
   margin-right: auto;
 }
