@@ -55,3 +55,6 @@ test-step5.py
 
 # CSS reference (internal development)
 css-reference/
+
+# Jupyter workspace files
+.jupyter/
