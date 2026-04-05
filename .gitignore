@@ -27,11 +27,31 @@ reference/
 # Rust build artifacts
 src-tauri/target/
 
-# Test notebooks (not shipped)
-test_*.ipynb
+# All notebooks (not shipped)
+*.ipynb
 
 # Benchmark results (regenerated)
 benchmarks/results.json
 
 # OS files
 Thumbs.db
+
+# Claude Code files
+.claude/
+CLAUDE.md
+
+# Dev docs
+dev/
+
+# Scripts (internal tooling)
+scripts/
+
+# Review checklist (internal)
+REVIEW_CHECKLIST.md
+
+# Misc test artifacts
+test-step5.html
+test-step5.py
+
+# CSS reference (internal development)
+css-reference/
