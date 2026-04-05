@@ -4,6 +4,7 @@ import TextOutput from './TextOutput';
 import ImageOutput from './ImageOutput';
 import HtmlOutput from './HtmlOutput';
 import ErrorOutput from './ErrorOutput';
+import WidgetOutput from './WidgetOutput';
 
 interface OutputAreaProps {
   outputs: Output[];
@@ -68,6 +69,17 @@ function OutputRenderer({ output }: { output: Output }) {
  * so these libraries work out of the box.
  */
 function MimeRenderer({ data }: { data: Record<string, unknown> }) {
+  // anywidget: display_data with widget view reference
+  if (data['application/vnd.jupyter.widget-view+json']) {
+    const viewData = data['application/vnd.jupyter.widget-view+json'] as {
+      model_id: string;
+      version_major: number;
+    };
+    if (viewData?.model_id) {
+      return <WidgetOutput modelId={viewData.model_id} />;
+    }
+  }
+
   // Plotly JSON: render via plotly.js CDN in an iframe
   if (data['application/vnd.plotly.v1+json']) {
     const spec = data['application/vnd.plotly.v1+json'];

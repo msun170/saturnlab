@@ -1,3 +1,4 @@
+mod ai;
 mod commands;
 mod filesystem;
 mod kernel;
@@ -9,6 +10,7 @@ pub mod terminal;
 
 use commands::ZmqPool;
 use kernel::manager::KernelManager;
+use kernel::ws_client::WsPool;
 use memory::monitor::MemoryMonitor;
 use terminal::TerminalManager;
 
@@ -20,6 +22,7 @@ pub fn run() {
         .manage(KernelManager::new())
         .manage(ZmqPool::new())
         .manage(std::sync::Mutex::new(MemoryMonitor::new()))
+        .manage(WsPool::new())
         .manage(TerminalManager::new())
         .invoke_handler(tauri::generate_handler![
             // Kernel management
@@ -30,6 +33,8 @@ pub fn run() {
             commands::list_running_kernels,
             // Code execution
             commands::execute_code,
+            // Widget comm
+            commands::send_comm_msg,
             // Code intelligence
             commands::complete_code,
             commands::inspect_code,
@@ -40,6 +45,7 @@ pub fn run() {
             commands::list_directory,
             commands::get_cwd,
             commands::rename_file,
+            commands::read_text_file,
             commands::write_text_file,
             // Settings
             commands::get_settings,
@@ -47,6 +53,8 @@ pub fn run() {
             // Memory
             commands::get_kernel_memory,
             commands::inspect_variables,
+            // AI
+            commands::ai_complete,
             // Terminal
             commands::spawn_terminal,
             commands::write_terminal,

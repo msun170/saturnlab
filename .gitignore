@@ -23,3 +23,15 @@ dist-ssr
 *.sln
 *.sw?
 reference/
+
+# Rust build artifacts
+src-tauri/target/
+
+# Test notebooks (not shipped)
+test_*.ipynb
+
+# Benchmark results (regenerated)
+benchmarks/results.json
+
+# OS files
+Thumbs.db

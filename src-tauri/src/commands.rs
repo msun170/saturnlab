@@ -92,11 +92,27 @@ impl ZmqPool {
     }
 }
 
+// ─── Remote helpers ─────────────────────────────────────────────────
+
+fn get_remote_client() -> Option<crate::kernel::remote::RemoteClient> {
+    let settings = crate::settings::read_settings();
+    if settings.remote_server_url.is_empty() || settings.remote_token.is_empty() {
+        return None;
+    }
+    Some(crate::kernel::remote::RemoteClient::new(
+        &settings.remote_server_url,
+        &settings.remote_token,
+    ))
+}
+
 // ─── Kernel Management ───────────────────────────────────────────────
 
 #[tauri::command]
-pub fn list_kernelspecs(manager: State<'_, KernelManager>) -> Vec<KernelSpec> {
-    manager.list_kernelspecs()
+pub async fn list_kernelspecs(manager: State<'_, KernelManager>) -> Result<Vec<KernelSpec>, String> {
+    if let Some(remote) = get_remote_client() {
+        return remote.list_kernelspecs().await;
+    }
+    Ok(manager.list_kernelspecs())
 }
 
 #[tauri::command]
@@ -104,8 +120,16 @@ pub async fn start_kernel(
     app: tauri::AppHandle,
     manager: State<'_, KernelManager>,
     pool: State<'_, ZmqPool>,
+    ws_pool: State<'_, crate::kernel::ws_client::WsPool>,
     spec_name: String,
 ) -> Result<String, String> {
+    if let Some(remote) = get_remote_client() {
+        let info = remote.start_kernel(&spec_name).await?;
+        let ws_url = remote.ws_url(&info.id);
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        ws_pool.connect(&info.id, &ws_url, app).await?;
+        return Ok(info.id);
+    }
     let kernel_id = manager.start_kernel(&spec_name).await?;
     tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
     pool.get_or_connect(&kernel_id, &manager, &app).await?;
@@ -116,8 +140,13 @@ pub async fn start_kernel(
 pub async fn stop_kernel(
     manager: State<'_, KernelManager>,
     pool: State<'_, ZmqPool>,
+    ws_pool: State<'_, crate::kernel::ws_client::WsPool>,
     kernel_id: String,
 ) -> Result<(), String> {
+    if let Some(remote) = get_remote_client() {
+        ws_pool.disconnect(&kernel_id).await;
+        return remote.stop_kernel(&kernel_id).await;
+    }
     pool.disconnect(&kernel_id).await;
     manager.stop_kernel(&kernel_id).await
 }
@@ -127,6 +156,9 @@ pub async fn interrupt_kernel(
     manager: State<'_, KernelManager>,
     kernel_id: String,
 ) -> Result<(), String> {
+    if let Some(remote) = get_remote_client() {
+        return remote.interrupt_kernel(&kernel_id).await;
+    }
     manager.interrupt_kernel(&kernel_id).await
 }
 
@@ -145,22 +177,69 @@ pub async fn execute_code(
     app: tauri::AppHandle,
     manager: State<'_, KernelManager>,
     pool: State<'_, ZmqPool>,
+    ws_pool: State<'_, crate::kernel::ws_client::WsPool>,
     kernel_id: String,
     code: String,
     silent: bool,
     msg_id: Option<String>,
 ) -> Result<String, String> {
-    let session = manager.get_session_id(&kernel_id).await?;
-    let client = pool.get_or_connect(&kernel_id, &manager, &app).await?;
+    // Build the message (session can be random UUID for remote)
+    let session = if get_remote_client().is_some() {
+        uuid::Uuid::new_v4().to_string()
+    } else {
+        manager.get_session_id(&kernel_id).await?
+    };
 
     let mut msg = JupyterMessage::execute_request(&session, &code, silent);
-    // If frontend provided a msg_id, use it so the pending map is already set
     if let Some(id) = msg_id {
         msg.header.msg_id = id;
     }
     let msg_id = msg.header.msg_id.clone();
 
-    {
+    // Route via WebSocket or ZMQ
+    if ws_pool.is_connected(&kernel_id).await {
+        ws_pool.send_shell(&kernel_id, &msg).await?;
+    } else {
+        let client = pool.get_or_connect(&kernel_id, &manager, &app).await?;
+        let mut zmq = client.lock().await;
+        zmq.send_shell(&msg).await?;
+    }
+
+    Ok(msg_id)
+}
+
+// ─── Widget Comm ─────────────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn send_comm_msg(
+    app: tauri::AppHandle,
+    manager: State<'_, KernelManager>,
+    pool: State<'_, ZmqPool>,
+    ws_pool: State<'_, crate::kernel::ws_client::WsPool>,
+    kernel_id: String,
+    comm_id: String,
+    data: serde_json::Value,
+) -> Result<String, String> {
+    let session = if get_remote_client().is_some() {
+        uuid::Uuid::new_v4().to_string()
+    } else {
+        manager.get_session_id(&kernel_id).await?
+    };
+
+    let msg = JupyterMessage::new(
+        "comm_msg",
+        &session,
+        serde_json::json!({
+            "comm_id": comm_id,
+            "data": data,
+        }),
+    );
+    let msg_id = msg.header.msg_id.clone();
+
+    if ws_pool.is_connected(&kernel_id).await {
+        ws_pool.send_shell(&kernel_id, &msg).await?;
+    } else {
+        let client = pool.get_or_connect(&kernel_id, &manager, &app).await?;
         let mut zmq = client.lock().await;
         zmq.send_shell(&msg).await?;
     }
@@ -201,6 +280,11 @@ pub fn rename_file(old_path: String, new_path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn read_text_file(path: String) -> Result<String, String> {
+    std::fs::read_to_string(&path).map_err(|e| format!("Read failed: {}", e))
+}
+
+#[tauri::command]
 pub fn write_text_file(path: String, content: String) -> Result<(), String> {
     std::fs::write(&path, &content).map_err(|e| format!("Write failed: {}", e))
 }
@@ -212,8 +296,9 @@ pub fn spawn_terminal(
     app: tauri::AppHandle,
     manager: State<'_, crate::terminal::TerminalManager>,
     id: String,
+    cwd: Option<String>,
 ) -> Result<(), String> {
-    manager.spawn(&id, app)
+    manager.spawn(&id, cwd, app)
 }
 
 #[tauri::command]
@@ -233,6 +318,13 @@ pub fn kill_terminal(
     manager.kill(&id)
 }
 
+// ─── AI ─────────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn ai_complete(system: String, prompt: String) -> Result<String, String> {
+    crate::ai::complete(&system, &prompt).await
+}
+
 // ─── Settings ────────────────────────────────────────────────────────
 
 #[tauri::command]
@@ -250,14 +342,19 @@ pub fn save_settings(settings: crate::settings::Settings) -> Result<(), String> 
 #[tauri::command]
 pub async fn complete_code(
     manager: State<'_, KernelManager>,
+    ws_pool: State<'_, crate::kernel::ws_client::WsPool>,
     kernel_id: String,
     code: String,
     cursor_pos: usize,
 ) -> Result<serde_json::Value, String> {
+    // Remote kernels: completion not supported via WebSocket (no reply channel)
+    if ws_pool.is_connected(&kernel_id).await {
+        return Err("Completion not available for remote kernels".to_string());
+    }
+
     let session = manager.get_session_id(&kernel_id).await?;
     let conn = manager.get_connection_info(&kernel_id).await?;
 
-    // Use a dedicated short-lived connection so we don't interfere with execute
     let mut client = ShellClient::connect(conn).await?;
 
     let msg = JupyterMessage::new(
@@ -268,7 +365,6 @@ pub async fn complete_code(
 
     client.send_shell(&msg).await?;
 
-    // Wait for reply (should be fast)
     match tokio::time::timeout(std::time::Duration::from_secs(5), client.shell.recv()).await {
         Ok(Ok(reply_msg)) => {
             let frames: Vec<Vec<u8>> = reply_msg.into_vec().iter().map(|f| f.to_vec()).collect();
@@ -286,10 +382,15 @@ pub async fn complete_code(
 #[tauri::command]
 pub async fn inspect_code(
     manager: State<'_, KernelManager>,
+    ws_pool: State<'_, crate::kernel::ws_client::WsPool>,
     kernel_id: String,
     code: String,
     cursor_pos: usize,
 ) -> Result<serde_json::Value, String> {
+    if ws_pool.is_connected(&kernel_id).await {
+        return Err("Inspection not available for remote kernels".to_string());
+    }
+
     let session = manager.get_session_id(&kernel_id).await?;
     let conn = manager.get_connection_info(&kernel_id).await?;
 
@@ -323,8 +424,13 @@ pub async fn inspect_code(
 pub async fn get_kernel_memory(
     manager: State<'_, KernelManager>,
     monitor: State<'_, std::sync::Mutex<MemoryMonitor>>,
+    ws_pool: State<'_, crate::kernel::ws_client::WsPool>,
     kernel_id: String,
 ) -> Result<MemoryInfo, String> {
+    // Remote kernels don't have a local PID to monitor
+    if ws_pool.is_connected(&kernel_id).await {
+        return Err("Memory monitoring not available for remote kernels".to_string());
+    }
     let pid = manager.get_kernel_pid(&kernel_id).await?;
     let mut mon = monitor.lock().map_err(|e| format!("Monitor lock: {}", e))?;
     mon.get_kernel_memory(pid)
@@ -373,11 +479,15 @@ pub async fn inspect_variables(
     app: tauri::AppHandle,
     manager: State<'_, KernelManager>,
     pool: State<'_, ZmqPool>,
+    ws_pool: State<'_, crate::kernel::ws_client::WsPool>,
     kernel_id: String,
     msg_id: Option<String>,
 ) -> Result<String, String> {
-    let session = manager.get_session_id(&kernel_id).await?;
-    let client = pool.get_or_connect(&kernel_id, &manager, &app).await?;
+    let session = if ws_pool.is_connected(&kernel_id).await {
+        uuid::Uuid::new_v4().to_string()
+    } else {
+        manager.get_session_id(&kernel_id).await?
+    };
 
     let mut msg = JupyterMessage::execute_request(&session, INSPECT_VARS_CODE, true);
     if let Some(id) = msg_id {
@@ -385,7 +495,10 @@ pub async fn inspect_variables(
     }
     let msg_id = msg.header.msg_id.clone();
 
-    {
+    if ws_pool.is_connected(&kernel_id).await {
+        ws_pool.send_shell(&kernel_id, &msg).await?;
+    } else {
+        let client = pool.get_or_connect(&kernel_id, &manager, &app).await?;
         let mut zmq = client.lock().await;
         zmq.send_shell(&msg).await?;
     }

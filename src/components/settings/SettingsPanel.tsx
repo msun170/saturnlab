@@ -136,6 +136,22 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
             </div>
           </div>
 
+          {/* Appearance */}
+          <div className="settings-section">
+            <h3>Appearance</h3>
+
+            <div className="settings-row">
+              <label>Theme</label>
+              <select
+                value={settings.theme}
+                onChange={(e) => update({ theme: e.target.value })}
+              >
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+              </select>
+            </div>
+          </div>
+
           {/* Editor */}
           <div className="settings-section">
             <h3>Editor</h3>
@@ -159,6 +175,100 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
               <label>Auto-save interval</label>
               <NumInput value={settings.autosave_interval_seconds} min={5} max={600} unit="seconds"
                 onChange={(v) => update({ autosave_interval_seconds: v })} onValidChange={(ok) => markField('autosave', ok)} />
+            </div>
+          </div>
+          {/* AI */}
+          <div className="settings-section">
+            <h3>AI Assistant</h3>
+
+            <div className="settings-row">
+              <label>Provider</label>
+              <select
+                value={settings.ai_provider}
+                onChange={(e) => {
+                  const provider = e.target.value;
+                  const defaults: Record<string, { url: string; model: string }> = {
+                    openai: { url: 'https://api.openai.com', model: 'gpt-4o-mini' },
+                    anthropic: { url: 'https://api.anthropic.com', model: 'claude-sonnet-4-20250514' },
+                    ollama: { url: 'http://localhost:11434', model: 'codellama' },
+                    custom: { url: '', model: '' },
+                    none: { url: '', model: '' },
+                  };
+                  const d = defaults[provider] ?? defaults.none;
+                  update({
+                    ai_provider: provider,
+                    ai_base_url: d.url,
+                    ai_model: d.model,
+                  });
+                }}
+              >
+                <option value="none">None</option>
+                <option value="openai">OpenAI</option>
+                <option value="anthropic">Anthropic</option>
+                <option value="ollama">Ollama (local)</option>
+                <option value="custom">Custom (OpenAI-compatible)</option>
+              </select>
+            </div>
+
+            {settings.ai_provider !== 'none' && (
+              <>
+                {settings.ai_provider !== 'ollama' && (
+                  <div className="settings-row">
+                    <label>API Key</label>
+                    <input
+                      type="password"
+                      value={settings.ai_api_key}
+                      onChange={(e) => update({ ai_api_key: e.target.value })}
+                      placeholder="sk-..."
+                    />
+                  </div>
+                )}
+
+                <div className="settings-row">
+                  <label>Base URL</label>
+                  <input
+                    type="text"
+                    value={settings.ai_base_url}
+                    onChange={(e) => update({ ai_base_url: e.target.value })}
+                    placeholder="https://api.openai.com"
+                  />
+                </div>
+
+                <div className="settings-row">
+                  <label>Model</label>
+                  <input
+                    type="text"
+                    value={settings.ai_model}
+                    onChange={(e) => update({ ai_model: e.target.value })}
+                    placeholder="gpt-4o-mini"
+                  />
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Remote Kernels */}
+          <div className="settings-section">
+            <h3>Remote Kernels</h3>
+
+            <div className="settings-row">
+              <label>Server URL</label>
+              <input
+                type="text"
+                value={settings.remote_server_url}
+                onChange={(e) => update({ remote_server_url: e.target.value })}
+                placeholder="https://jupyter.example.com"
+              />
+            </div>
+
+            <div className="settings-row">
+              <label>Token</label>
+              <input
+                type="password"
+                value={settings.remote_token}
+                onChange={(e) => update({ remote_token: e.target.value })}
+                placeholder="Server or JupyterHub token"
+              />
             </div>
           </div>
         </div>

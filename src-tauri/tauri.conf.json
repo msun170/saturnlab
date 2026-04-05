@@ -20,7 +20,7 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob:; connect-src 'self' https: http://localhost:* ws: wss:; font-src 'self' data:; frame-src 'self' blob:; worker-src 'self' blob:"
     }
   },
   "bundle": {
@@ -32,6 +32,26 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "category": "DeveloperTool",
+    "shortDescription": "Lightweight Jupyter notebook app",
+    "longDescription": "Saturn is a lightweight Jupyter notebook desktop app. Same .ipynb files, 10x lighter. Your RAM is for your data, not your editor.",
+    "fileAssociations": [
+      {
+        "ext": ["ipynb"],
+        "mimeType": "application/x-ipynb+json",
+        "description": "Jupyter Notebook"
+      }
+    ],
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": ""
+    },
+    "linux": {
+      "deb": {
+        "depends": []
+      }
+    }
   }
 }

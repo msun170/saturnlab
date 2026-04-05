@@ -9,7 +9,8 @@ import MarkdownIt from 'markdown-it';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 
-const md = new MarkdownIt({ html: true, linkify: true, typographer: true });
+// html: false prevents raw HTML injection from untrusted notebook markdown
+const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
 
 // Simple LaTeX rendering: replace $...$ and $$...$$ with KaTeX
 function renderLatex(html: string): string {
@@ -107,10 +108,20 @@ export default function MarkdownCell({
       view.destroy();
       viewRef.current = null;
     };
-    // Only recreate editor when entering/exiting edit mode — NOT on source changes.
-    // source is read once as initial value. onChangeRef handles updates.
     // Only recreate editor when entering/exiting edit mode
   }, [isEditing]);
+
+  // Sync editor when source changes externally (replace-all, programmatic edits)
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view || !isEditing) return;
+    const currentDoc = view.state.doc.toString();
+    if (currentDoc !== source) {
+      view.dispatch({
+        changes: { from: 0, to: currentDoc.length, insert: source },
+      });
+    }
+  }, [source, isEditing]);
 
   if (isEditing) {
     return (

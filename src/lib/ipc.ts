@@ -35,6 +35,22 @@ export async function executeCode(
   return invoke<string>('execute_code', { kernelId, code, silent, msgId: msgId ?? null });
 }
 
+// ─── AI ─────────────────────────────────────────────────────────────
+
+export async function aiComplete(system: string, prompt: string): Promise<string> {
+  return invoke<string>('ai_complete', { system, prompt });
+}
+
+// ─── Widget Comm ────────────────────────────────────────────────────
+
+export async function sendCommMsg(
+  kernelId: string,
+  commId: string,
+  data: Record<string, unknown>,
+): Promise<string> {
+  return invoke<string>('send_comm_msg', { kernelId, commId, data });
+}
+
 // ─── Notebook I/O ────────────────────────────────────────────────────
 
 export async function readNotebook(path: string): Promise<Notebook> {
@@ -107,6 +123,14 @@ export interface AppSettings {
   show_line_numbers: boolean;
   theme: string;
   editor_font_size: number;
+  // AI
+  ai_provider: string;
+  ai_api_key: string;
+  ai_base_url: string;
+  ai_model: string;
+  // Remote kernels
+  remote_server_url: string;
+  remote_token: string;
 }
 
 export async function getSettings(): Promise<AppSettings> {

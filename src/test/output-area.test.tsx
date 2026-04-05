@@ -43,7 +43,7 @@ describe('OutputArea', () => {
     expect(screen.getByText("NameError: name 'foo' is not defined")).toBeTruthy();
   });
 
-  it('renders HTML output', () => {
+  it('renders HTML output in sandboxed iframe', () => {
     const outputs: Output[] = [
       {
         output_type: 'display_data',
@@ -51,7 +51,11 @@ describe('OutputArea', () => {
       },
     ];
     const { container } = render(<OutputArea outputs={outputs} />);
-    expect(container.querySelector('b')?.textContent).toBe('bold text');
+    const iframe = container.querySelector('iframe');
+    expect(iframe).toBeTruthy();
+    // Static HTML (no scripts): strict sandbox (empty string)
+    expect(iframe?.getAttribute('sandbox')).toBe('');
+    expect(iframe?.getAttribute('srcdoc')).toContain('bold text');
   });
 
   it('renders image output', async () => {

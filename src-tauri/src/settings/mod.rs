@@ -17,6 +17,20 @@ pub struct Settings {
     pub theme: String,
     #[serde(default = "default_14")]
     pub editor_font_size: u32,
+    // AI settings
+    #[serde(default = "default_none")]
+    pub ai_provider: String,
+    #[serde(default)]
+    pub ai_api_key: String,
+    #[serde(default)]
+    pub ai_base_url: String,
+    #[serde(default)]
+    pub ai_model: String,
+    // Remote kernel settings
+    #[serde(default)]
+    pub remote_server_url: String,
+    #[serde(default)]
+    pub remote_token: String,
 }
 
 fn default_30() -> u32 { 30 }
@@ -24,6 +38,7 @@ fn default_300() -> u32 { 300 }
 fn default_14() -> u32 { 14 }
 fn default_true() -> bool { true }
 fn default_light() -> String { "light".to_string() }
+fn default_none() -> String { "none".to_string() }
 
 impl Default for Settings {
     fn default() -> Self {
@@ -35,6 +50,12 @@ impl Default for Settings {
             show_line_numbers: true,
             theme: "light".to_string(),
             editor_font_size: 14,
+            ai_provider: "none".to_string(),
+            ai_api_key: String::new(),
+            ai_base_url: String::new(),
+            ai_model: String::new(),
+            remote_server_url: String::new(),
+            remote_token: String::new(),
         }
     }
 }

@@ -9,6 +9,10 @@ import type { KernelOutput } from '../../types/kernel';
 import { executeCode } from '../../lib/ipc';
 import { formatBytes } from '../../types/memory';
 import { useAppStore } from '../../store';
+import { handleCommOpen, handleCommMsg, handleCommClose, destroyKernelWidgets } from '../../lib/widgetManager';
+import { buildAnalysisCode, parseDepsResult, findStaleCells, findOutOfOrderCells, type CellDeps } from '../../lib/dependencyAnalyzer';
+import { explainCell, fixError } from '../../lib/ai';
+import AiPanel from '../ai/AiPanel';
 
 interface CellState {
   id: string;
@@ -19,7 +23,15 @@ interface CellState {
   isRunning: boolean;
   outputHidden: boolean;
   memoryDelta: number | null;
-  collapsed: boolean; // for collapsible headings // bytes change after execution
+  collapsed: boolean;
+  deps: CellDeps | null;
+  metadata: Record<string, unknown>;
+  /** Source code at the time of last execution. Used for stale detection. */
+  lastExecutedSource: string | null;
+  /** Timestamp (ms) of last execution. */
+  lastExecutedAt: number | null;
+  /** Timestamp (ms) of last execution where the source differed from the previous run. */
+  lastSourceChangeAt: number | null;
 }
 
 interface NotebookProps {
@@ -51,6 +63,11 @@ function cellFromNotebook(cell: Cell): CellState {
     outputHidden: false,
     memoryDelta: null,
     collapsed: false,
+    deps: null,
+    metadata: cell.metadata ?? {},
+    lastExecutedSource: null,
+    lastExecutedAt: null,
+    lastSourceChangeAt: null,
   };
 }
 
@@ -108,6 +125,15 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
     onFocusedCellChange?.(focusedCellType, focusedIndex);
   }, [focusedIndex, focusedCellType]);
 
+  // Pointer-based drag-and-drop state
+  const dragIndexRef = useRef<number | null>(null);
+  const dragOverRef = useRef<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const isDraggingRef = useRef(false);
+
+  // Ref for analyzeDeps so the iopub listener (mount-only effect) can call the latest version
+  const analyzeDepsRef = useRef<((kid: string) => void) | null>(null);
+
   // Track which msg_id belongs to which cell. Using ref instead of state
   // because we don't need React re-renders when this changes.
   const pendingRef = useRef(new Map<string, string>());
@@ -122,6 +148,19 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
       // Only process messages from our kernel (multi-kernel isolation)
       // Use kernelIdRef to avoid stale closure (effect runs once with [] deps)
       if (kernelIdRef.current && kernel_id !== kernelIdRef.current) return;
+
+      if (msg_type === 'comm_open') {
+        handleCommOpen(kernel_id, content as Record<string, unknown>);
+        // Don't return: display_data with widget MIME follows as a separate message
+      }
+      if (msg_type === 'comm_msg') {
+        handleCommMsg(content as Record<string, unknown>);
+        return; // comm_msg doesn't produce cell output
+      }
+      if (msg_type === 'comm_close') {
+        handleCommClose(content as Record<string, unknown>);
+        return;
+      }
 
       // Find which cell this output belongs to
       const cellId = pendingRef.current.get(parent_msg_id);
@@ -193,13 +232,91 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
       // Clean up pending execution when kernel goes idle for this msg
       if (msg_type === 'status' && content.execution_state === 'idle') {
         pendingRef.current.delete(parent_msg_id);
+
+        // Trigger dependency analysis after execution completes
+        const kid = kernelIdRef.current;
+        if (kid && pendingRef.current.size === 0) {
+          // All executions done, analyze deps (use ref to get latest function)
+          requestAnimationFrame(() => {
+            analyzeDepsRef.current?.(kid);
+          });
+        }
       }
     });
 
     return () => {
       unlisten.then((fn) => fn());
+      // Clean up widgets when component unmounts or kernel changes
+      if (kernelIdRef.current) {
+        destroyKernelWidgets(kernelIdRef.current);
+      }
     };
   }, []);
+
+  // ─── Dependency Analysis ─────────────────────────────────────────
+
+  const analyzeDeps = useCallback(async (kid: string) => {
+    // Collect source code from all code cells (read fresh from state)
+    const currentCells = cells;
+    const codeCells = currentCells.filter((c) => c.cell_type === 'code' && c.source.trim());
+    if (codeCells.length === 0) return;
+
+    const sources = codeCells.map((c) => c.source);
+    const analysisCode = buildAnalysisCode(sources);
+    const codeCount = codeCells.length;
+
+    try {
+      const msgId = crypto.randomUUID();
+      const { listen: listenOnce } = await import('@tauri-apps/api/event');
+      let resultText = '';
+
+      const unlisten = await listenOnce<{ msg_type: string; content: Record<string, unknown>; parent_msg_id: string; kernel_id: string }>('kernel-output', (event) => {
+        if (event.payload.parent_msg_id !== msgId) return;
+        if (event.payload.msg_type === 'stream') {
+          resultText += (event.payload.content.text as string) ?? '';
+        }
+        if (event.payload.msg_type === 'status' && event.payload.content.execution_state === 'idle') {
+          unlisten();
+          const depsArray = parseDepsResult(resultText);
+          if (depsArray && depsArray.length === codeCount) {
+            setCells((prev) => {
+              let codeIdx = 0;
+              return prev.map((cell) => {
+                if (cell.cell_type === 'code' && cell.source.trim()) {
+                  const deps = depsArray[codeIdx] ?? null;
+                  codeIdx++;
+                  return { ...cell, deps };
+                }
+                return { ...cell, deps: null };
+              });
+            });
+          }
+        }
+      });
+
+      await executeCode(kid, analysisCode, true, msgId);
+    } catch {
+      // Silently fail -- deps analysis is optional
+    }
+  }, [cells]);
+  analyzeDepsRef.current = analyzeDeps;
+
+  // Compute stale and out-of-order cells from deps
+  const staleCells = useMemo(() => {
+    const cellData = cells.map((c) => ({
+      deps: c.deps,
+      source: c.source,
+      lastExecutedSource: c.lastExecutedSource,
+      lastExecutedAt: c.lastExecutedAt,
+      lastSourceChangeAt: c.lastSourceChangeAt,
+    }));
+    return findStaleCells(cellData);
+  }, [cells]);
+
+  const outOfOrderCells = useMemo(() => {
+    const cellData = cells.map((c) => ({ deps: c.deps }));
+    return findOutOfOrderCells(cellData);
+  }, [cells]);
 
   // Sync cells back to notebook format when they change
   useEffect(() => {
@@ -208,7 +325,7 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
       cells: cells.map((cell) => ({
         cell_type: cell.cell_type,
         source: cell.source,
-        metadata: {},
+        metadata: cell.metadata,
         outputs: cell.cell_type === 'code' ? cell.outputs : undefined,
         execution_count: cell.cell_type === 'code' ? cell.execution_count : undefined,
         id: cell.id,
@@ -227,9 +344,22 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
         return;
       }
 
-      // Clear outputs and mark as running
+      // Clear outputs, mark as running, track execution timestamps
+      const now = Date.now();
       setCells((prev) =>
-        prev.map((c, i) => (i === index ? { ...c, outputs: [], isRunning: true } : c)),
+        prev.map((c, i) => {
+          if (i !== index) return c;
+          // If source changed since last execution, record the change timestamp
+          const sourceChanged = c.lastExecutedSource !== null && c.source !== c.lastExecutedSource;
+          return {
+            ...c,
+            outputs: [],
+            isRunning: true,
+            lastExecutedSource: c.source,
+            lastExecutedAt: now,
+            lastSourceChangeAt: sourceChanged ? now : c.lastSourceChangeAt,
+          };
+        }),
       );
       onDirty?.(); // Execution changes outputs, mark as dirty
 
@@ -323,6 +453,11 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
       outputHidden: false,
       memoryDelta: null,
       collapsed: false,
+      deps: null,
+      metadata: {},
+      lastExecutedSource: null,
+      lastExecutedAt: null,
+      lastSourceChangeAt: null,
     };
     setCells((prev) => {
       const next = [...prev];
@@ -365,6 +500,70 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
     [cells.length],
   );
 
+  // ─── Pointer-based drag-and-drop cell reordering ────────────────
+
+  const handlePointerDragStart = useCallback((e: React.PointerEvent, index: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragIndexRef.current = index;
+    dragOverRef.current = null;
+    isDraggingRef.current = true;
+
+    // Dim the source cell
+    const sourceEl = document.querySelector(`[data-cell-index="${index}"]`) as HTMLElement | null;
+    if (sourceEl) sourceEl.style.opacity = '0.4';
+
+    const handlePointerMove = (moveEvt: PointerEvent) => {
+      if (!isDraggingRef.current) return;
+
+      // Find which cell-container the pointer is over
+      const el = document.elementFromPoint(moveEvt.clientX, moveEvt.clientY);
+      if (!el) return;
+      const container = (el as HTMLElement).closest('[data-cell-index]') as HTMLElement | null;
+      if (container) {
+        const overIndex = parseInt(container.dataset.cellIndex ?? '', 10);
+        if (!isNaN(overIndex) && overIndex !== dragIndexRef.current) {
+          dragOverRef.current = overIndex;
+          setDragOverIndex(overIndex);
+        }
+      }
+    };
+
+    const handlePointerUp = () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+
+      // Restore opacity
+      if (sourceEl) sourceEl.style.opacity = '1';
+
+      const sourceIndex = dragIndexRef.current;
+      const targetIndex = dragOverRef.current;
+
+      isDraggingRef.current = false;
+      dragIndexRef.current = null;
+      dragOverRef.current = null;
+      setDragOverIndex(null);
+
+      // Perform the reorder
+      if (sourceIndex !== null && targetIndex !== null && sourceIndex !== targetIndex) {
+        pushUndo();
+        setCells((prev) => {
+          const next = [...prev];
+          const [moved] = next.splice(sourceIndex, 1);
+          // When dragging down, removing the source shifts later indices by -1
+          const adjustedTarget = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex;
+          next.splice(adjustedTarget, 0, moved);
+          return next;
+        });
+        const newFocused = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex;
+        setFocusedIndex(newFocused);
+      }
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+  }, [pushUndo]);
+
   const addCellAbove = useCallback((index: number, type: 'code' | 'markdown') => {
     pushUndo();
     const newCell: CellState = {
@@ -377,6 +576,11 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
       outputHidden: false,
       memoryDelta: null,
       collapsed: false,
+      deps: null,
+      metadata: {},
+      lastExecutedSource: null,
+      lastExecutedAt: null,
+      lastSourceChangeAt: null,
     };
     setCells((prev) => {
       const next = [...prev];
@@ -560,6 +764,63 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
 
   const [showLineNumbers, setShowLineNumbers] = useState(true);
   const [showSearch, setShowSearch] = useState(false);
+
+  // AI state
+  const [aiCellIndex, setAiCellIndex] = useState<number | null>(null);
+  const [aiType, setAiType] = useState<'explain' | 'fix' | 'generate'>('explain');
+  const [aiResult, setAiResult] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const handleAiExplain = useCallback(async (index: number) => {
+    const cell = cells[index];
+    if (!cell || !cell.source.trim()) return;
+    setAiCellIndex(index);
+    setAiType('explain');
+    setAiResult(null);
+    setAiError(null);
+    setAiLoading(true);
+    try {
+      const result = await explainCell(cell.source);
+      setAiResult(result);
+    } catch (e: unknown) {
+      setAiError(String(e));
+    } finally {
+      setAiLoading(false);
+    }
+  }, [cells]);
+
+  const handleAiFix = useCallback(async (index: number) => {
+    const cell = cells[index];
+    if (!cell) return;
+    const errorOutput = cell.outputs.find((o) => o.output_type === 'error');
+    if (!errorOutput) return;
+    const traceback = (errorOutput.traceback ?? []).join('\n');
+    setAiCellIndex(index);
+    setAiType('fix');
+    setAiResult(null);
+    setAiError(null);
+    setAiLoading(true);
+    try {
+      const result = await fixError(cell.source, traceback);
+      setAiResult(result);
+    } catch (e: unknown) {
+      setAiError(String(e));
+    } finally {
+      setAiLoading(false);
+    }
+  }, [cells]);
+
+  const handleAiApply = useCallback((code: string) => {
+    if (aiCellIndex === null) return;
+    handleCellChange(aiCellIndex, code);
+  }, [aiCellIndex]);
+
+  const handleAiDismiss = useCallback(() => {
+    setAiCellIndex(null);
+    setAiResult(null);
+    setAiError(null);
+    setAiLoading(false);
+  }, []);
 
   const handleSearch = useCallback((query: string, matchCase: boolean) => {
     const results: { cellIndex: number; lineNumber: number; text: string }[] = [];
@@ -786,8 +1047,17 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
         return (
         <div
           key={cell.id}
-          className={`cell-container ${index === highlightCellIndex ? 'cell-highlighted' : ''}`}
+          data-cell-index={index}
+          className={`cell-container ${index === focusedIndex ? 'cell-focused-container' : ''} ${index === highlightCellIndex ? 'cell-highlighted' : ''} ${dragOverIndex === index ? 'cell-drag-over' : ''} ${staleCells.has(index) ? 'cell-stale' : ''} ${outOfOrderCells.has(index) ? 'cell-out-of-order' : ''}`}
         >
+          {/* Drag handle (pointer-based, not HTML5 drag) */}
+          <div
+            className="cell-drag-handle"
+            onPointerDown={(e) => handlePointerDragStart(e, index)}
+            title="Drag to reorder"
+          >
+            &#x2630;
+          </div>
           {/* Highlight dismiss button */}
           {index === highlightCellIndex && (
             <button className="cell-highlight-dismiss" onClick={clearHighlight} title="Dismiss">x</button>
@@ -810,7 +1080,31 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
               <option value="code">Code</option>
               <option value="markdown">Markdown</option>
             </select>
+            {cell.cell_type === 'code' && (
+              <>
+                <button className="cell-ai-btn" onClick={() => handleAiExplain(index)} title="Explain with AI">
+                  ?
+                </button>
+                {cell.outputs.some((o) => o.output_type === 'error') && (
+                  <button className="cell-ai-btn" onClick={() => handleAiFix(index)} title="Fix error with AI">
+                    fix
+                  </button>
+                )}
+              </>
+            )}
           </div>
+
+          {/* AI Panel (shown below cell actions, above cell content) */}
+          {aiCellIndex === index && (
+            <AiPanel
+              type={aiType}
+              result={aiResult}
+              loading={aiLoading}
+              error={aiError}
+              onApply={aiType !== 'explain' ? handleAiApply : undefined}
+              onDismiss={handleAiDismiss}
+            />
+          )}
 
           {/* Cell */}
           {cell.cell_type === 'code' ? (
@@ -853,6 +1147,18 @@ const Notebook = forwardRef<NotebookHandle, NotebookProps>(function Notebook({ n
                 onFocus={() => setFocusedIndex(index)}
                 onExecute={() => handleExecuteCell(index)}
               />
+            </div>
+          )}
+
+          {/* Stale / out-of-order indicators */}
+          {staleCells.has(index) && (
+            <div className="cell-stale-badge" title="This cell may be stale. A variable it uses was redefined by a more recently executed cell.">
+              {'\u25CC'} stale - inputs changed since last run
+            </div>
+          )}
+          {outOfOrderCells.has(index) && !staleCells.has(index) && (
+            <div className="cell-order-badge" title="This cell uses a variable defined in a cell below it. Consider reordering.">
+              {'\u26A0'} uses variable defined below
             </div>
           )}
 

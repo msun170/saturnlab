@@ -19,11 +19,18 @@ export function useAutosave() {
       let saved = false;
 
       for (const tab of state.tabs) {
-        if (!tab.isDirty || !tab.filePath || tab.isLauncher) continue;
+        if (!tab.isDirty || !tab.filePath || tab.isLauncher || tab.isTerminal) continue;
 
         try {
-          const { writeNotebook } = await import('../lib/ipc');
-          await writeNotebook(tab.filePath, tab.notebook);
+          if (tab.isTextEditor) {
+            // Text editor tabs: save as plain text
+            const { invoke } = await import('@tauri-apps/api/core');
+            await invoke('write_text_file', { path: tab.filePath, content: tab.textContent });
+          } else {
+            // Notebook tabs: save as .ipynb
+            const { writeNotebook } = await import('../lib/ipc');
+            await writeNotebook(tab.filePath, tab.notebook);
+          }
           state.updateTab(tab.id, { isDirty: false });
           saved = true;
         } catch {

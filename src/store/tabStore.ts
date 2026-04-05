@@ -11,6 +11,7 @@ export interface TabState {
   fileName: string;
   notebook: Notebook;
   kernelId: string | null;
+  kernelSpecName: string | null;
   kernelStatus: KernelStatus;
   suspensionLayer: SuspensionLayer;
   lastActiveAt: number;
@@ -25,6 +26,10 @@ export interface TabState {
   isLauncher: boolean;
   /** True when this tab shows an integrated terminal. */
   isTerminal: boolean;
+  /** True when this tab shows a plain text editor. */
+  isTextEditor: boolean;
+  /** Text content for plain text editor tabs. */
+  textContent: string;
   /** Cell index to highlight (e.g. heaviest output cell). null = no highlight. */
   highlightCellIndex: number | null;
 }
@@ -58,6 +63,7 @@ function createDefaultTab(overrides?: Partial<TabState>): TabState {
     fileName: 'Untitled.ipynb',
     notebook: createEmptyNotebook(),
     kernelId: null,
+    kernelSpecName: null,
     kernelStatus: 'disconnected',
     suspensionLayer: 'active',
     lastActiveAt: Date.now(),
@@ -69,6 +75,8 @@ function createDefaultTab(overrides?: Partial<TabState>): TabState {
     pendingExecutions: new Map(),
     isLauncher: false,
     isTerminal: false,
+    isTextEditor: false,
+    textContent: '',
     highlightCellIndex: null,
     ...overrides,
   };
@@ -92,6 +100,12 @@ interface AppStore {
     show_line_numbers: boolean;
     theme: string;
     editor_font_size: number;
+    ai_provider: string;
+    ai_api_key: string;
+    ai_base_url: string;
+    ai_model: string;
+    remote_server_url: string;
+    remote_token: string;
   };
 
   // Tab actions
@@ -128,6 +142,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
     show_line_numbers: true,
     theme: 'light',
     editor_font_size: 14,
+    ai_provider: 'none',
+    ai_api_key: '',
+    ai_base_url: '',
+    ai_model: '',
+    remote_server_url: '',
+    remote_token: '',
   },
 
   addTab: (overrides) => {
@@ -190,11 +210,15 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setAppSettings: (settings) => set({ appSettings: settings }),
 }));
 
-// Persist open tab file paths to localStorage for Ctrl+R reload recovery
+// Persist open tab info to localStorage for Ctrl+R reload recovery
 useAppStore.subscribe((state) => {
   const tabInfo = state.tabs
-    .filter((t) => t.filePath && !t.isLauncher)
-    .map((t) => ({ filePath: t.filePath, fileName: t.fileName }));
+    .filter((t) => t.filePath && !t.isLauncher && !t.isTerminal)
+    .map((t) => ({
+      filePath: t.filePath,
+      fileName: t.fileName,
+      isTextEditor: t.isTextEditor,
+    }));
   const activeFilePath = state.tabs.find((t) => t.id === state.activeTabId)?.filePath ?? null;
   localStorage.setItem('saturn-open-tabs', JSON.stringify({ tabInfo, activeFilePath }));
 });
@@ -204,14 +228,18 @@ try {
   const saved = localStorage.getItem('saturn-open-tabs');
   if (saved) {
     const { tabInfo, activeFilePath } = JSON.parse(saved) as {
-      tabInfo: { filePath: string; fileName: string }[];
+      tabInfo: { filePath: string; fileName: string; isTextEditor?: boolean }[];
       activeFilePath: string | null;
     };
     if (tabInfo.length > 0) {
       // Replace the initial launcher tab with saved tabs
-      // Notebooks will be loaded async in App.tsx
+      // Notebooks will be loaded async in App.tsx, text files likewise
       const restoredTabs = tabInfo.map((info) =>
-        createDefaultTab({ filePath: info.filePath, fileName: info.fileName }),
+        createDefaultTab({
+          filePath: info.filePath,
+          fileName: info.fileName,
+          isTextEditor: info.isTextEditor ?? false,
+        }),
       );
       const activeTab = activeFilePath
         ? restoredTabs.find((t) => t.filePath === activeFilePath)

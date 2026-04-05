@@ -42,7 +42,7 @@ export default function Sidebar({ width, onResize }: SidebarProps) {
   };
 
   return (
-    <div className="sidebar-container" style={{ width: activePanel ? width : 32 }}>
+    <div className="sidebar-container" style={{ width: activePanel ? width : 40 }}>
       {/* Icon strip */}
       <div className="sidebar-icons">
         <button
@@ -50,7 +50,7 @@ export default function Sidebar({ width, onResize }: SidebarProps) {
           onClick={() => togglePanel('files')}
           title="File Browser"
         >
-          <span className="sidebar-icon-sym">{'\u{1F5C0}'}</span>
+          <span className="sidebar-icon-sym">{'\u29C9'}</span>
           <span className="sidebar-icon-label">Files</span>
         </button>
         <button

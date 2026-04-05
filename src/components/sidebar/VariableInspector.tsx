@@ -342,13 +342,13 @@ export default function VariableInspector() {
                 const isUnused = unusedVars.some((u) => u.name === v.name);
                 return (
                   <tr key={v.name} className={isUnused ? 'var-row-unused' : ''}>
-                    <td className="var-name">
+                    <td className="var-name" title={v.name}>
                       {v.name}
                       {isUnused && <span className="var-unused-badge" title="Not used recently">idle</span>}
                     </td>
-                    <td className="var-type">{v.type}</td>
-                    <td className="var-size">{formatBytes(v.size)}</td>
-                    <td className="var-shape">{v.shape}</td>
+                    <td className="var-type" title={v.type}>{v.type}</td>
+                    <td className="var-size" title={formatBytes(v.size)}>{formatBytes(v.size)}</td>
+                    <td className="var-shape" title={v.shape || undefined}>{v.shape}</td>
                     <td>
                       <button className="var-delete" onClick={() => handleDelete(v.name)} title={`Delete ${v.name}`}>
                         x

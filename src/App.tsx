@@ -11,6 +11,7 @@ import StatusBar from './components/statusbar/StatusBar';
 import ShortcutsModal from './components/toolbar/ShortcutsModal';
 import SettingsPanel from './components/settings/SettingsPanel';
 import TerminalPanel from './components/terminal/Terminal';
+import TextEditor from './components/editor/TextEditor';
 import CommandPalette from './components/toolbar/CommandPalette';
 import type { Command } from './components/toolbar/CommandPalette';
 import { useSuspension } from './hooks/useSuspension';
@@ -29,11 +30,17 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showTerminal, setShowTerminal] = useState(false);
   const editorFontSize = useAppStore((s) => s.appSettings.editor_font_size);
+  const theme = useAppStore((s) => s.appSettings.theme);
 
   // Apply settings as CSS variables so CodeMirror picks them up
   useEffect(() => {
     document.documentElement.style.setProperty('--editor-font-size', `${editorFontSize}px`);
   }, [editorFontSize]);
+
+  // Apply theme to document root
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
   const notebookRef = useRef<NotebookHandle>(null);
 
   // Initialize suspension timer system and autosave
@@ -86,21 +93,28 @@ function App() {
     });
   }, []);
 
-  // Restore notebook data for tabs loaded from localStorage (Ctrl+R recovery)
+  // Restore notebook/text-editor data for tabs loaded from localStorage (Ctrl+R recovery)
   useEffect(() => {
     const loadRestoredTabs = async () => {
       // Small delay to ensure Tauri IPC is ready
       await new Promise((r) => setTimeout(r, 500));
       const store = useAppStore.getState();
       for (const tab of store.tabs) {
-        if (tab.filePath && !tab.isLauncher) {
-          try {
+        if (!tab.filePath || tab.isLauncher) continue;
+        try {
+          if (tab.isTextEditor) {
+            // Restore text editor tab
+            const { invoke } = await import('@tauri-apps/api/core');
+            const content = await invoke<string>('read_text_file', { path: tab.filePath });
+            useAppStore.getState().updateTab(tab.id, { textContent: content });
+          } else {
+            // Restore notebook tab
             const nb = await readNotebook(tab.filePath);
             useAppStore.getState().updateTab(tab.id, { notebook: nb });
-          } catch {
-            // File might not exist, remove the tab
-            useAppStore.getState().removeTab(tab.id);
           }
+        } catch {
+          // File might not exist, remove the tab
+          useAppStore.getState().removeTab(tab.id);
         }
       }
     };
@@ -126,7 +140,7 @@ function App() {
     updateActiveTab({ kernelStatus: 'starting' });
     try {
       const id = await startKernel(specName);
-      updateActiveTab({ kernelId: id, kernelStatus: 'idle' });
+      updateActiveTab({ kernelId: id, kernelSpecName: specName, kernelStatus: 'idle' });
     } catch (e: unknown) {
       setError(`Failed to start kernel: ${e}`);
       updateActiveTab({ kernelStatus: 'disconnected' });
@@ -192,6 +206,29 @@ function App() {
   const handleSaveFile = useCallback(async () => {
     if (!tab) return;
     try {
+      // Text editor tabs: save as plain text
+      if (tab.isTextEditor) {
+        let path = tab.filePath;
+        if (!path) {
+          const selected = await save({
+            filters: [
+              { name: 'Text Files', extensions: ['py', 'txt', 'md', 'js', 'ts', 'json', 'toml', 'yaml', 'css', 'html'] },
+              { name: 'All Files', extensions: ['*'] },
+            ],
+            defaultPath: tab.fileName,
+          });
+          if (!selected) return;
+          path = selected;
+          const fileName = path.split(/[\\/]/).pop() ?? tab.fileName;
+          updateActiveTab({ filePath: path, fileName });
+        }
+        const { invoke } = await import('@tauri-apps/api/core');
+        await invoke('write_text_file', { path, content: tab.textContent });
+        updateActiveTab({ isDirty: false });
+        return;
+      }
+
+      // Notebook tabs
       let path = tab.filePath;
       if (!path) {
         const selected = await save({
@@ -233,7 +270,8 @@ function App() {
 
   const handleRestartKernel = useCallback(async () => {
     if (!tab?.kernelId) return;
-    const specName = kernelspecs.length > 0 ? kernelspecs[0].name : null;
+    // Use the same kernelspec that was originally started for this tab
+    const specName = tab.kernelSpecName ?? (kernelspecs.length > 0 ? kernelspecs[0].name : null);
     await handleStopKernel();
     if (specName) {
       await handleStartKernel(specName);
@@ -436,7 +474,7 @@ function App() {
           {/* Toolbar */}
           <div className="toolbar">
         <div className="toolbar-group">
-          <button onClick={handleSaveFile} className="toolbar-btn" title="Save (Ctrl+S)">💾</button>
+          <button onClick={handleSaveFile} className="toolbar-btn" title="Save (Ctrl+S)">{'\u2913'}</button>
         </div>
         <div className="toolbar-group">
           <button onClick={() => notebookRef.current?.addCellBelow('code')} className="toolbar-btn" title="Insert Cell Below">+</button>
@@ -444,7 +482,7 @@ function App() {
         <div className="toolbar-group">
           <button onClick={() => notebookRef.current?.cutCell()} className="toolbar-btn" title="Cut Cell">✂</button>
           <button onClick={() => notebookRef.current?.copyCell()} className="toolbar-btn" title="Copy Cell">⧉</button>
-          <button onClick={() => notebookRef.current?.pasteCell()} className="toolbar-btn" title="Paste Cell Below">📋</button>
+          <button onClick={() => notebookRef.current?.pasteCell()} className="toolbar-btn" title="Paste Cell Below">{'\u2398'}</button>
         </div>
         <div className="toolbar-group">
           <button onClick={() => notebookRef.current?.moveFocusedCell('up')} className="toolbar-btn" title="Move Up">↑</button>
@@ -486,20 +524,33 @@ function App() {
       {tab.isLauncher ? (
         <Launcher />
       ) : tab.isTerminal ? (
-        <TerminalPanel visible={true} onClose={() => {
-          // Close the terminal tab and open a launcher
-          useAppStore.getState().removeTab(tab.id);
-        }} />
+        <TerminalPanel
+          terminalId={tab.id}
+          showHeader={false}
+          cwd={tab.filePath ? tab.filePath.replace(/[\\/][^\\/]+$/, '') : undefined}
+        />
+      ) : tab.isTextEditor ? (
+        <TextEditor
+          key={tab.id}
+          content={tab.textContent}
+          fileName={tab.fileName}
+          onChange={(content) => {
+            updateActiveTab({ textContent: content, isDirty: true });
+          }}
+        />
       ) : (tab.suspensionLayer === 'layerA' || tab.suspensionLayer === 'layerC') ? (
         <SuspendedPlaceholder
           tab={tab}
           onResume={() => {
             updateActiveTab({ suspensionLayer: 'active' });
             if (tab.suspensionLayer === 'layerC') {
-              // Kernel was stopped, offer to restart
-              const specs = useAppStore.getState().kernelspecs;
-              if (specs.length > 0) {
-                handleStartKernel(specs[0].name);
+              // Kernel was stopped, restart with same spec
+              const specName = tab.kernelSpecName;
+              if (specName) {
+                handleStartKernel(specName);
+              } else {
+                const specs = useAppStore.getState().kernelspecs;
+                if (specs.length > 0) handleStartKernel(specs[0].name);
               }
             }
           }}
@@ -523,7 +574,7 @@ function App() {
           onSave={handleSaveFile}
         />
       )}
-          <TerminalPanel visible={showTerminal} onClose={() => setShowTerminal(false)} />
+          {showTerminal && <TerminalPanel terminalId="bottom-panel" onClose={() => setShowTerminal(false)} />}
         </div>{/* end .main-content */}
       </div>{/* end .app-workspace */}
 

@@ -11,6 +11,7 @@ pub struct TerminalManager {
 struct TerminalInstance {
     writer: Box<dyn Write + Send>,
     _child: Box<dyn portable_pty::Child + Send>,
+    _master: Box<dyn portable_pty::MasterPty + Send>,
 }
 
 impl TerminalManager {
@@ -20,7 +21,7 @@ impl TerminalManager {
         }
     }
 
-    pub fn spawn(&self, id: &str, app_handle: tauri::AppHandle) -> Result<(), String> {
+    pub fn spawn(&self, id: &str, cwd: Option<String>, app_handle: tauri::AppHandle) -> Result<(), String> {
         let pty_system = NativePtySystem::default();
         let pair = pty_system
             .openpty(PtySize { rows: 24, cols: 80, pixel_width: 0, pixel_height: 0 })
@@ -32,7 +33,12 @@ impl TerminalManager {
         let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string());
 
         let mut cmd = CommandBuilder::new(&shell);
-        cmd.cwd(std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")));
+        let working_dir = cwd
+            .map(std::path::PathBuf::from)
+            .filter(|p| p.is_dir())
+            .or_else(|| dirs::home_dir())
+            .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")));
+        cmd.cwd(working_dir);
 
         let child = pair.slave.spawn_command(cmd)
             .map_err(|e| format!("Failed to spawn shell: {}", e))?;
@@ -62,7 +68,7 @@ impl TerminalManager {
         });
 
         self.terminals.lock().map_err(|e| format!("Lock: {}", e))?
-            .insert(id.to_string(), TerminalInstance { writer, _child: child });
+            .insert(id.to_string(), TerminalInstance { writer, _child: child, _master: pair.master });
         Ok(())
     }
 

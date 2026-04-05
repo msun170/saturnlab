@@ -1,9 +1,11 @@
 import { useRef, useEffect, type ReactNode } from 'react';
 import { EditorView, keymap, placeholder as cmPlaceholder } from '@codemirror/view';
-import { EditorState, Prec } from '@codemirror/state';
+import { EditorState, Prec, Compartment } from '@codemirror/state';
 import { python } from '@codemirror/lang-python';
 import { defaultKeymap } from '@codemirror/commands';
 import { autocompletion, acceptCompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
+import { oneDarkHighlightStyle } from '@codemirror/theme-one-dark';
+import { syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language';
 import { basicSetup } from 'codemirror';
 
 interface CodeCellProps {
@@ -69,34 +71,34 @@ export default function CodeCell({
       }
     });
 
-    // Light theme matching Jupyter's #f7f7f7 cell background
+    // Theme using CSS variables so it auto-switches with light/dark
     const jupyterLightTheme = EditorView.theme({
       '&': {
-        backgroundColor: '#f7f7f7',
-        color: '#333',
+        backgroundColor: 'var(--bg-cell)',
+        color: 'var(--text-color)',
       },
       '.cm-content': {
-        caretColor: '#333',
+        caretColor: 'var(--text-color)',
         fontFamily: 'Menlo, Monaco, Consolas, "Courier New", monospace',
         fontSize: 'var(--editor-font-size, 14px)',
         lineHeight: '1.5',
       },
       '.cm-gutters': {
-        backgroundColor: '#f7f7f7',
+        backgroundColor: 'var(--bg-cell)',
         borderRight: 'none',
-        color: '#999',
+        color: 'var(--text-muted)',
       },
       '.cm-activeLineGutter': {
         backgroundColor: 'transparent',
       },
       '.cm-activeLine': {
-        backgroundColor: 'rgba(0, 0, 0, 0.04)',
+        backgroundColor: 'rgba(128, 128, 128, 0.1)',
       },
       '&.cm-focused .cm-cursor': {
-        borderLeftColor: '#333',
+        borderLeftColor: 'var(--text-color)',
       },
       '&.cm-focused .cm-selectionBackground, ::selection': {
-        backgroundColor: '#d7d4f0',
+        backgroundColor: 'var(--cm-selection, #d7d4f0)',
       },
     });
 
@@ -135,7 +137,8 @@ export default function CodeCell({
               // Convert ANSI to HTML for colored tooltip
               const rawText = result.data['text/plain'];
               const Convert = (await import('ansi-to-html')).default;
-              const convert = new Convert({ fg: '#333', bg: '#fff', newline: true });
+              const tooltipDark = document.documentElement.getAttribute('data-theme') === 'dark';
+              const convert = new Convert({ fg: tooltipDark ? '#d4d4d4' : '#333', bg: tooltipDark ? '#252526' : '#fff', newline: true });
               const htmlContent = convert.toHtml(rawText);
 
               const tooltip = document.createElement('div');
@@ -160,6 +163,13 @@ export default function CodeCell({
       },
     }]);
 
+    // Syntax highlight style: switch based on current theme
+    const highlightCompartment = new Compartment();
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const highlightExt = highlightCompartment.of(
+      syntaxHighlighting(isDark ? oneDarkHighlightStyle : defaultHighlightStyle)
+    );
+
     const state = EditorState.create({
       doc: source,
       extensions: [
@@ -168,6 +178,7 @@ export default function CodeCell({
         basicSetup,
         python(),
         jupyterLightTheme,
+        highlightExt,
         keymap.of(defaultKeymap),
         autocompletion({
           override: [kernelCompletionSource],
@@ -197,12 +208,36 @@ export default function CodeCell({
 
     viewRef.current = view;
 
+    // Watch for theme changes and swap syntax highlight style
+    const observer = new MutationObserver(() => {
+      const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+      view.dispatch({
+        effects: highlightCompartment.reconfigure(
+          syntaxHighlighting(dark ? oneDarkHighlightStyle : defaultHighlightStyle)
+        ),
+      });
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
     return () => {
+      observer.disconnect();
       view.destroy();
       viewRef.current = null;
     };
     // Only create editor once on mount (source is initial value)
   }, []);
+
+  // Sync CodeMirror when source changes externally (AI apply, replace-all, etc.)
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    const currentDoc = view.state.doc.toString();
+    if (currentDoc !== source) {
+      view.dispatch({
+        changes: { from: 0, to: currentDoc.length, insert: source },
+      });
+    }
+  }, [source]);
 
   useEffect(() => {
     if (isEditing && viewRef.current) {

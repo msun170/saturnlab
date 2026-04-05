@@ -5,82 +5,134 @@ import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import 'xterm/css/xterm.css';
 
-interface TerminalPanelProps {
-  visible: boolean;
-  onClose: () => void;
+interface TerminalProps {
+  terminalId: string;
+  cwd?: string;
+  showHeader?: boolean;
+  onClose?: () => void;
 }
 
-export default function TerminalPanel({ visible, onClose }: TerminalPanelProps) {
+export default function TerminalPanel({ terminalId, cwd, showHeader = true, onClose }: TerminalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<XTerm | null>(null);
-  const fitRef = useRef<FitAddon | null>(null);
-  const [termId] = useState(() => `term-${Date.now()}`);
-  const [started, setStarted] = useState(false);
+  const [ready, setReady] = useState(false);
 
+  // Phase 1: wait for container to have layout
   useEffect(() => {
-    if (!visible || !containerRef.current || started) return;
+    const el = containerRef.current;
+    if (!el) return;
+    let cancelled = false;
+    let raf: number;
+    const check = () => {
+      if (cancelled) return;
+      const { width, height } = el.getBoundingClientRect();
+      if (width > 10 && height > 10) {
+        setReady(true);
+      } else {
+        raf = requestAnimationFrame(check);
+      }
+    };
+    raf = requestAnimationFrame(check);
+    return () => { cancelled = true; cancelAnimationFrame(raf); };
+  }, [terminalId]);
+
+  // Phase 2: init xterm once container is laid out
+  useEffect(() => {
+    if (!ready) return;
+    const el = containerRef.current;
+    if (!el) return;
+
+    const ptyId = `pty-${terminalId}`;
+    let cleaned = false;
 
     const term = new XTerm({
       fontSize: 13,
       fontFamily: 'Menlo, Monaco, Consolas, "Courier New", monospace',
-      theme: {
-        background: '#1e1e1e',
-        foreground: '#d4d4d4',
-        cursor: '#d4d4d4',
-      },
+      theme: { background: '#1e1e1e', foreground: '#d4d4d4', cursor: '#d4d4d4' },
       cursorBlink: true,
+      convertEol: true,
     });
-
     const fit = new FitAddon();
     term.loadAddon(fit);
-    term.open(containerRef.current);
-    fit.fit();
-
+    term.open(el);
     termRef.current = term;
-    fitRef.current = fit;
+    try { fit.fit(); } catch { /* */ }
 
-    // Spawn PTY on Rust side
-    invoke('spawn_terminal', { id: termId }).then(() => {
-      setStarted(true);
-    }).catch((e: unknown) => {
-      term.write(`\r\nFailed to start terminal: ${e}\r\n`);
+    const dataDisp = term.onData((data) => {
+      invoke('write_terminal', { id: ptyId, data }).catch(() => {});
+    });
+    const binDisp = term.onBinary((data) => {
+      invoke('write_terminal', { id: ptyId, data }).catch(() => {});
     });
 
-    // Send user input to Rust PTY
-    term.onData((data) => {
-      invoke('write_terminal', { id: termId, data }).catch(() => {});
-    });
+    let unlisten: (() => void) | null = null;
 
-    // Listen for PTY output from Rust
-    const unlisten = listen<{ id: string; data: string }>('terminal-output', (event) => {
-      if (event.payload.id === termId) {
-        term.write(event.payload.data);
+    // CRITICAL: await listener registration BEFORE spawning PTY
+    // so we don't miss the shell prompt
+    (async () => {
+      if (cleaned) return;
+
+      // 1. Register the listener and WAIT for it to be active
+      unlisten = await listen<{ id: string; data: string }>('terminal-output', (event) => {
+        if (event.payload.id === ptyId) {
+          term.write(event.payload.data);
+        }
+      });
+
+      if (cleaned) { unlisten(); return; }
+
+      // 2. NOW spawn the PTY (listener is guaranteed active)
+      try {
+        await invoke('spawn_terminal', { id: ptyId, cwd: cwd ?? null });
+      } catch (e: unknown) {
+        term.write(`\r\nFailed to start terminal: ${e}\r\n`);
+        return;
       }
-    });
 
-    // Handle resize
-    const resizeObserver = new ResizeObserver(() => {
-      fit.fit();
+      if (cleaned) return;
+
+      // 3. Fit and focus
+      try { fit.fit(); } catch { /* */ }
+      term.focus();
+      const ta = el.querySelector('textarea.xterm-helper-textarea') as HTMLTextAreaElement | null;
+      if (ta) ta.focus();
+    })();
+
+    const obs = new ResizeObserver(() => {
+      try { fit.fit(); } catch { /* */ }
     });
-    resizeObserver.observe(containerRef.current);
+    obs.observe(el);
 
     return () => {
-      unlisten.then((fn) => fn());
-      resizeObserver.disconnect();
-      invoke('kill_terminal', { id: termId }).catch(() => {});
+      cleaned = true;
+      obs.disconnect();
+      dataDisp.dispose();
+      binDisp.dispose();
+      if (unlisten) unlisten();
+      invoke('kill_terminal', { id: ptyId }).catch(() => {});
       term.dispose();
+      termRef.current = null;
+      setReady(false);
     };
-  }, [visible, started, termId]);
-
-  if (!visible) return null;
+  }, [ready, terminalId]);
 
   return (
     <div className="terminal-panel">
-      <div className="terminal-header">
-        <span>Terminal</span>
-        <button className="terminal-close" onClick={onClose}>x</button>
-      </div>
-      <div ref={containerRef} className="terminal-container" />
+      {showHeader && (
+        <div className="terminal-header">
+          <span>Terminal</span>
+          {onClose && <button className="terminal-close" onClick={onClose}>&times;</button>}
+        </div>
+      )}
+      <div
+        ref={containerRef}
+        className="terminal-container"
+        onClick={() => {
+          termRef.current?.focus();
+          const ta = containerRef.current?.querySelector('textarea.xterm-helper-textarea') as HTMLTextAreaElement | null;
+          if (ta) ta.focus();
+        }}
+      />
     </div>
   );
 }
