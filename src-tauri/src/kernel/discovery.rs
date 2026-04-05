@@ -129,10 +129,14 @@ fn get_kernelspec_dirs() -> Vec<PathBuf> {
 
 /// Ask Python for the Jupyter data paths (most reliable on all platforms).
 fn get_jupyter_paths_from_python() -> Option<Vec<PathBuf>> {
-    let output = std::process::Command::new("python")
-        .args(["-c", "import jupyter_core.paths, json; print(json.dumps(jupyter_core.paths.jupyter_path()))"])
-        .output()
-        .ok()?;
+    let mut cmd = std::process::Command::new("python");
+    cmd.args(["-c", "import jupyter_core.paths, json; print(json.dumps(jupyter_core.paths.jupyter_path()))"]);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    }
+    let output = cmd.output().ok()?;
 
     if !output.status.success() {
         return None;
@@ -165,10 +169,14 @@ fn get_jupyter_data_dir() -> Option<PathBuf> {
 
 /// Get the Jupyter data dir inside the current Python environment.
 fn get_sys_prefix_jupyter_dir() -> Option<PathBuf> {
-    let output = std::process::Command::new("python")
-        .args(["-c", "import sys; print(sys.prefix)"])
-        .output()
-        .ok()?;
+    let mut cmd = std::process::Command::new("python");
+    cmd.args(["-c", "import sys; print(sys.prefix)"]);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    }
+    let output = cmd.output().ok()?;
 
     if !output.status.success() {
         return None;

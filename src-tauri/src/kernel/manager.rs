@@ -90,6 +90,14 @@ impl KernelManager {
         cmd.stdout(std::process::Stdio::piped());
         cmd.stderr(std::process::Stdio::piped());
 
+        // On Windows, prevent a console window from flashing open
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
+            cmd.creation_flags(CREATE_NO_WINDOW);
+        }
+
         let child = cmd
             .spawn()
             .map_err(|e| format!("Failed to spawn kernel: {}", e))?;
