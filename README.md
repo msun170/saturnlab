@@ -1,10 +1,10 @@
 # Saturn
 
-**A Jupyter notebook that shows you where your RAM goes.**
+**A Jupyter notebook frontend with built-in memory visibility.**
 
-Saturn is a lightweight desktop notebook app with built-in memory visibility. It runs the same `.ipynb` files and the same kernels you already use, but every cell shows its memory cost, every variable shows its footprint, and the whole thing fits in 17 MB instead of 700.
+Saturn is a lightweight desktop notebook application designed for standard `.ipynb` files and existing Jupyter kernels. It makes memory usage visible at the cell, variable, and output level while maintaining the notebook workflow users already know. The full application occupies roughly 17 MB on disk rather than hundreds of megabytes.
 
-`28 MB idle` | `4s cold start` | `5 MB installer` | `17 MB on disk`
+`28 MB idle RAM` | `~4s startup` | `5 MB installer` | `17 MB on disk`
 
 ---
 
@@ -12,13 +12,11 @@ Saturn is a lightweight desktop notebook app with built-in memory visibility. It
 
 ---
 
-## Why this exists
+## Why Saturn exists
 
-If you've spent time with notebooks, you've run into this: the kernel crashes, and you have no idea why. You don't know which cell ate the RAM. You don't know which variables are quietly holding onto gigabytes. You don't know whether the problem is your data or your outputs.
+Notebook workflows make it easy to execute code without understanding its resource cost. When a kernel becomes unstable or crashes, it is often difficult to determine which cell caused the spike, which variables are retaining memory, or whether notebook outputs have become unnecessarily large.
 
-Jupyter doesn't surface any of this. Saturn does.
-
-Every cell shows a memory delta after it runs. The variable inspector tells you exactly how large each object is, down to the byte, with deep sizing for DataFrames, arrays, and tensors. Output accounting lets you see which cells are bloating your notebook before you save. And it all runs in a native desktop window that uses a fraction of the resources.
+Saturn addresses this directly. Each cell displays its memory delta after execution. The variable inspector reports object sizes with deep sizing for DataFrames, arrays, and tensors. Output accounting shows which cells are responsible for notebook bloat before the file is saved. All of this is provided in a native desktop application with substantially lower overhead than a browser-based or Electron-based workflow.
 
 ---
 
@@ -26,9 +24,9 @@ Every cell shows a memory delta after it runs. The variable inspector tells you 
 
 ![Per-cell memory tracking](assets/gifs/per_cell_memory_tracking_3_and_4.gif)
 
-Run a cell, and the memory delta appears immediately. Import pandas: +2 MB. Create a million-row DataFrame: +80 MB. You always know exactly what each cell costs.
+After each cell runs, Saturn displays the corresponding memory delta immediately. Small operations remain clearly distinguishable from large allocations, making it possible to identify the precise steps responsible for increased memory usage.
 
-The variable inspector in the sidebar sorts everything by size and supports deep introspection for pandas, numpy, and pytorch objects. If something is eating your RAM, you'll find it in seconds.
+The variable inspector sorts objects by size and supports deep introspection for pandas, NumPy, and PyTorch objects. Large allocations can be identified quickly, inspected directly, and cleared when no longer needed.
 
 ---
 
@@ -36,11 +34,11 @@ The variable inspector in the sidebar sorts everything by size and supports deep
 
 ![Feature tour](assets/gifs/features_2.gif)
 
-Multi-tab notebooks, dark mode, integrated terminal, command palette, drag-and-drop cell reordering, collapsible headings, kernel-powered autocomplete, and more. Saturn covers the workflow you expect from a notebook app, just without the overhead.
+Saturn includes the core workflow expected from a notebook environment: multi-tab notebooks, dark mode, an integrated terminal, a command palette, drag-and-drop cell reordering, collapsible headings, and kernel-powered autocomplete. The goal is to preserve the notebook experience while reducing unnecessary overhead and exposing information that standard notebook interfaces do not surface.
 
 ---
 
-## How it compares
+## Comparison
 
 ### Size
 
@@ -79,9 +77,9 @@ Multi-tab notebooks, dark mode, integrated terminal, command palette, drag-and-d
 
 | | Saturn | JupyterLab Desktop |
 |---|--------|-------------------|
-| Idle RAM | 28 MB (everything included) | 117 MB server + 200-400 MB browser |
+| Idle RAM | 28 MB | ~400-600 MB |
 
-Saturn includes the entire application in that number: the WebView, the UI, and the Rust backend. JupyterLab's 117 MB is just the Python server; the browser tab it needs adds another few hundred megabytes on top.
+Saturn's idle figure includes the entire application: WebView, user interface, and Rust backend. JupyterLab Desktop is an Electron application that bundles Chromium alongside a Python server; its total process tree typically occupies 400-600 MB at idle. The browser-based version of JupyterLab (not Desktop) splits this between a ~117 MB Python server and a separate browser tab consuming 200-400 MB.
 
 ### Features
 
@@ -96,7 +94,7 @@ Saturn includes the entire application in that number: the WebView, the UI, and 
 | Interactive widgets | Yes (anywidget) | Yes |
 | AI code assistance | Built-in | Extension |
 
-Saturn reads and writes standard `.ipynb` files and uses standard Jupyter kernels. It's not trying to replace the Jupyter ecosystem. It's a different frontend for people who want to see what's happening under the hood.
+Saturn reads and writes standard `.ipynb` files and uses standard Jupyter kernels. It is not intended to replace the broader Jupyter ecosystem. Instead, it provides an alternative frontend for users who want better visibility into notebook behavior and lower local overhead.
 
 ---
 
@@ -119,15 +117,42 @@ Saturn reads and writes standard `.ipynb` files and uses standard Jupyter kernel
 
 ---
 
-## What's included
+## Included functionality
 
-**Memory tools** -- per-cell RAM deltas, variable inspector with deep sizing, duplicate object detection, output size accounting, save-without-outputs workflow, memory snapshots and diff.
+### Memory tools
+- Per-cell RAM deltas after execution
+- Variable inspector with deep sizing
+- Duplicate object detection
+- Output size accounting
+- Save-without-outputs workflow
+- Memory snapshots and diffs
 
-**Notebook features** -- multi-tab notebooks, dark mode, integrated terminal, text editor, anywidget support, stale cell indicators, execution order warnings, drag-and-drop cells, collapsible headings, search and replace, command palette, kernel-powered autocomplete and tooltips, export to .py and HTML.
+### Notebook features
+- Multi-tab notebooks
+- Dark mode
+- Integrated terminal
+- Text editor
+- anywidget support
+- Stale cell indicators
+- Execution order warnings
+- Drag-and-drop cell reordering
+- Collapsible headings
+- Search and replace
+- Command palette
+- Kernel-powered autocomplete and tooltips
+- Export to `.py` and HTML
 
-**AI assistance** -- explain cell, fix error, multiple providers (OpenAI, Anthropic, Ollama for local models).
+### AI assistance
+- Explain cell
+- Fix error
+- Support for OpenAI, Anthropic, and local Ollama models
 
-**Performance** -- 28 MB idle, 4s cold start, CSS-based virtual scrolling, lazy output loading, three-tier tab suspension (background freeze, UI unmount, kernel auto-stop).
+### Performance
+- 28 MB idle RAM
+- ~4 second startup
+- CSS-based virtual scrolling
+- Lazy output loading
+- Three-tier tab suspension
 
 ---
 
@@ -139,7 +164,7 @@ Download the latest installer from [Releases](https://github.com/YOUR_USERNAME/s
 - **macOS**: `.dmg` (Apple Silicon and Intel)
 - **Linux**: `.AppImage` or `.deb`
 
-You'll need a Jupyter kernel installed. If you have Python:
+A Jupyter kernel must already be installed. For Python environments:
 
 ```bash
 pip install ipykernel
@@ -161,15 +186,15 @@ Requires Node.js 18+, Rust 1.70+, and [Tauri v2 prerequisites](https://v2.tauri.
 
 ## Architecture
 
-Saturn is built on [Tauri v2](https://v2.tauri.app/) -- a Rust backend with the OS-native WebView instead of bundling Chromium. That's why the app is 17 MB instead of 150+.
+Saturn is built on [Tauri v2](https://v2.tauri.app/), which provides a Rust backend with the OS-native WebView rather than bundling Chromium as Electron does. This is the primary reason the application is 17 MB rather than several hundred.
 
-The backend handles kernel communication (pure Rust ZeroMQ, no C bindings), process memory monitoring, filesystem operations, and PTY terminal management. The frontend is React with TypeScript, CodeMirror 6, and Zustand for state. All rich output and widget code runs in sandboxed iframes with no access to the main application.
+The backend handles kernel communication using pure Rust ZeroMQ (no C bindings), process memory monitoring, filesystem operations, and PTY terminal management. The frontend uses React with TypeScript, CodeMirror 6, and Zustand for state management. All rich output and widget code executes in sandboxed iframes with no access to the host application.
 
 ---
 
 ## Contributing
 
-Issues and pull requests are welcome. For larger changes, please open an issue first so we can talk through the approach.
+Issues and pull requests are welcome. For larger changes, please open an issue first to discuss the approach.
 
 ```bash
 npm run tauri dev                              # dev server
@@ -189,4 +214,4 @@ cargo test --manifest-path src-tauri/Cargo.toml # rust tests
 
 ## License
 
-[MIT](LICENSE)
+[Apache 2.0](LICENSE)
