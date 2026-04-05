@@ -4,7 +4,7 @@
 
 Saturn is a lightweight desktop notebook application designed for standard `.ipynb` files and existing Jupyter kernels. It makes memory usage visible at the cell, variable, and output level while maintaining the notebook workflow users already know. The full application occupies roughly 17 MB on disk rather than hundreds of megabytes.
 
-`28 MB idle RAM` | `~4s startup` | `5 MB installer` | `17 MB on disk`
+`180 MB idle` | `~4s startup` | `5 MB installer` | `17 MB on disk`
 
 ---
 
@@ -16,7 +16,7 @@ Saturn is a lightweight desktop notebook application designed for standard `.ipy
 
 Notebook workflows make it easy to execute code without understanding its resource cost. When a kernel becomes unstable or crashes, it is often difficult to determine which cell caused the spike, which variables are retaining memory, or whether notebook outputs have become unnecessarily large.
 
-Saturn addresses this directly. Each cell displays its memory delta after execution. The variable inspector reports object sizes with deep sizing for DataFrames, arrays, and tensors. Output accounting shows which cells are responsible for notebook bloat before the file is saved. All of this is provided in a native desktop application with substantially lower overhead than a browser-based or Electron-based workflow.
+Saturn addresses this directly. Each cell displays its memory delta after execution. The variable inspector reports object sizes with deep sizing for DataFrames, arrays, and tensors. Output accounting shows which cells are responsible for notebook bloat before the file is saved. All of this is provided in a native desktop application with lower overhead than an Electron-based or browser-based workflow.
 
 ---
 
@@ -75,11 +75,17 @@ Saturn includes the core workflow expected from a notebook environment: multi-ta
 
 ### Memory
 
-| | Saturn | JupyterLab Desktop |
-|---|--------|-------------------|
-| Idle RAM | 28 MB | ~400-600 MB |
+Measured on Windows x64, 16 GB RAM, using the same notebook (`demo_memory.ipynb`) for both apps. Memory was read from Task Manager's Details tab. The Python kernel process (`python.exe`) is excluded from both apps since it is the same kernel regardless of frontend. Only the application's own processes are counted: `saturn.exe` + `msedgewebview2.exe` for Saturn, `jlab.exe` + sub-processes for JupyterLab Desktop.
 
-Saturn's idle figure includes the entire application: WebView, user interface, and Rust backend. JupyterLab Desktop is an Electron application that bundles Chromium alongside a Python server; its total process tree typically occupies 400-600 MB at idle. The browser-based version of JupyterLab (not Desktop) splits this between a ~117 MB Python server and a separate browser tab consuming 200-400 MB.
+| Step | Saturn | JupyterLab Desktop |
+|------|--------|-------------------|
+| Idle (no notebook) | 180 MB | 234 MB |
+| Notebook open + kernel started | 226 MB | 433 MB |
+| After running all cells | 238 MB | 443 MB |
+
+The kernel process itself used ~166 MB in Saturn and ~169 MB in JupyterLab Desktop, confirming that the kernel overhead is equivalent. The difference is entirely in the frontend application.
+
+**Note on browser-based JupyterLab:** The numbers above are for JupyterLab Desktop, which is an Electron application bundling Chromium. The browser-based version of JupyterLab (`jupyter lab` opened in Chrome or Firefox) splits its cost differently: a Python server process (~117 MB) plus a browser tab (200-400 MB depending on the browser and notebook size). The total is comparable to Desktop but spread across separate processes.
 
 ### Features
 
@@ -148,7 +154,7 @@ Saturn reads and writes standard `.ipynb` files and uses standard Jupyter kernel
 - Support for OpenAI, Anthropic, and local Ollama models
 
 ### Performance
-- 28 MB idle RAM
+- 180 MB idle (vs 234-443 MB for JupyterLab Desktop)
 - ~4 second startup
 - CSS-based virtual scrolling
 - Lazy output loading
